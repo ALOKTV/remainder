@@ -15,6 +15,7 @@ npm run start
 - Stores call repository classes and notification services.
 - SQLite access is isolated to repositories and `src/database`.
 - This keeps the app ready for a future Supabase sync layer without rewriting screens.
+alok
 
 ## Implemented MVP
 
