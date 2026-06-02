@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Remainder",
+    "slug": "remainder",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.local.remainder"
+    },
+    "android": {
+      "package": "com.local.remainder",
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "sounds": []
+        }
+      ],
+      "expo-sqlite",
+      "expo-asset",
+      "expo-font",
+      "@react-native-community/datetimepicker"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "def1d144-84d0-481b-b78f-68b191f1adfa"
+      }
+    }
+  }
+}
