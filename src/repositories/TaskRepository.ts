@@ -76,11 +76,12 @@ export class TaskRepository {
 
   async setCompleted(id: string, completed: boolean): Promise<void> {
     const db = await getDb();
+    const updatedAt = nowIso();
     await db.runAsync(
       'UPDATE tasks SET isCompleted = ?, lastCompletedAt = ?, updatedAt = ? WHERE id = ?',
       boolToInt(completed),
-      completed ? nowIso() : null,
-      nowIso(),
+      completed ? updatedAt : null,
+      updatedAt,
       id,
     );
   }

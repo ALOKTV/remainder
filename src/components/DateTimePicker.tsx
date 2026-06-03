@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppIcon } from './AppIcon';
 import { format, parseISO } from 'date-fns';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { displayTime12 } from '../utils/date';
@@ -54,16 +54,24 @@ export function DateTimePicker({ label, value, mode, onChange }: Props) {
           ]}
         >
           <Text numberOfLines={1} style={[styles.valueText, { color: theme.text }]}>{displayValue}</Text>
-          <Ionicons name={open ? 'chevron-up' : mode === 'date' ? 'calendar-outline' : 'time-outline'} size={20} color={theme.secondaryText} />
+          <AppIcon name={open ? 'chevron-up' : mode === 'date' ? 'calendar-outline' : 'time-outline'} size={20} color={theme.secondaryText} />
         </Pressable>
 
         {open ? (
           <View style={[styles.menu, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
-            {mode === 'date' ? (
-              <DateMenu day={dateParts.day} month={dateParts.month} year={dateParts.year} onChange={updateDate} />
-            ) : (
-              <TimeMenu hour12={timeParts.hour12} minute={timeParts.minute} period={timeParts.period} onChange={updateTime} />
-            )}
+            <ScrollView
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+              persistentScrollbar
+              style={styles.menuScroll}
+            >
+              {mode === 'date' ? (
+                <DateMenu day={dateParts.day} month={dateParts.month} year={dateParts.year} onChange={updateDate} />
+              ) : (
+                <TimeMenu hour12={timeParts.hour12} minute={timeParts.minute} period={timeParts.period} onChange={updateTime} />
+              )}
+            </ScrollView>
           </View>
         ) : null}
       </View>
@@ -163,6 +171,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
   menu: { borderRadius: appTheme.radius.input, borderWidth: 1, left: 0, maxHeight: 360, overflow: 'hidden', position: 'absolute', right: 0, top: 54, zIndex: 120 },
   menuContent: { gap: 10, padding: 12 },
+  menuScroll: { flexGrow: 0 },
   menuSectionLabel: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
   option: { alignItems: 'center', borderRadius: 8, flex: 1, justifyContent: 'center', minHeight: 36, minWidth: 64, paddingHorizontal: 10, paddingVertical: 8 },
   optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../components/AppIcon';
 import { Button } from '../../components/Button';
 import { FAB } from '../../components/FAB';
 import { ConfirmDialog, ConfirmDialogConfig } from '../../components/ConfirmDialog';
@@ -14,6 +14,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useNoteStore } from '../../store/noteStore';
 import { Note, NoteChecklistItem, NoteColor } from '../../types/models';
 import { displayDateTime } from '../../utils/date';
+import { format, parseISO } from 'date-fns';
 import { createId } from '../../utils/id';
 import { screenStyles } from '../common/screenStyles';
 import { theme as appTheme } from '../../constants/theme';
@@ -187,11 +188,11 @@ export function NotesScreen() {
       {createMenuOpen ? (
         <View style={styles.createMenu}>
           <Pressable onPress={() => openCreate('note')} style={[styles.createOption, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Ionicons name="document-text-outline" size={20} color={theme.primary} />
+            <AppIcon name="document-text-outline" size={20} color={theme.primary} />
             <Text style={[styles.createOptionText, { color: theme.text }]}>Note</Text>
           </Pressable>
           <Pressable onPress={() => openCreate('checklist')} style={[styles.createOption, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Ionicons name="checkbox-outline" size={20} color={theme.primary} />
+            <AppIcon name="checkbox-outline" size={20} color={theme.primary} />
             <Text style={[styles.createOptionText, { color: theme.text }]}>Checklist</Text>
           </Pressable>
         </View>
@@ -227,7 +228,7 @@ function NoteCard({ note, onPress, onToggleChecklistItem }: { note: Note; onPres
           {previewItems.map((item) => (
             <View key={item.id} style={styles.previewRow}>
               <Pressable hitSlop={8} onPress={(event: any) => { event?.stopPropagation?.(); onToggleChecklistItem(item.id); }}>
-                <Ionicons name={item.checked ? 'checkbox' : 'square-outline'} size={18} color={item.checked ? theme.primary : theme.secondaryText} />
+                <AppIcon name={item.checked ? 'checkbox' : 'square-outline'} size={18} color={item.checked ? theme.primary : theme.secondaryText} />
               </Pressable>
               <Text
                 numberOfLines={1}
@@ -243,7 +244,7 @@ function NoteCard({ note, onPress, onToggleChecklistItem }: { note: Note; onPres
         </View>
       ) : null}
       <View style={{ flex: 1 }} />
-      <Text style={[styles.cardDate, { color: theme.primary }]}>{displayDateTime(note.updatedAt.slice(0, 10))}</Text>
+      <Text style={[styles.cardDate, { color: theme.primary }]}>Updated {formatNoteUpdatedAt(note.updatedAt)}</Text>
     </Pressable>
   );
 }
@@ -273,7 +274,7 @@ function ColorPicker({ value, onChange }: { value: NoteColor; onChange: (value: 
                 },
               ]}
             >
-              {selected ? <Ionicons name="checkmark" size={18} color={theme.primary} /> : null}
+              {selected ? <AppIcon name="checkmark" size={18} color={theme.primary} /> : null}
             </Pressable>
           );
         })}
@@ -308,7 +309,7 @@ function ChecklistEditor({
         {items.map((item) => (
           <View key={item.id} style={styles.checklistRow}>
             <Pressable hitSlop={8} onPress={() => onChange(item.id, { checked: !item.checked })}>
-              <Ionicons name={item.checked ? 'checkbox' : 'square-outline'} size={24} color={item.checked ? theme.primary : theme.secondaryText} />
+              <AppIcon name={item.checked ? 'checkbox' : 'square-outline'} size={24} color={item.checked ? theme.primary : theme.secondaryText} />
             </Pressable>
             <TextInput
               value={item.text}
@@ -325,7 +326,7 @@ function ChecklistEditor({
               ]}
             />
             <Pressable hitSlop={8} onPress={() => onRemove(item.id)}>
-              <Ionicons name="close" size={22} color={theme.secondaryText} />
+              <AppIcon name="close" size={22} color={theme.secondaryText} />
             </Pressable>
           </View>
         ))}
@@ -338,6 +339,14 @@ function getNoteCardColors(color: NoteColor, isDark: boolean, fallbackSurface: s
   const option = noteColorOptions.find((item) => item.value === color);
   if (!option || color === 'default') return { background: fallbackSurface, border: fallbackBorder };
   return { background: isDark ? option.dark : option.light, border: option.border };
+}
+
+function formatNoteUpdatedAt(value: string): string {
+  try {
+    return format(parseISO(value), 'MMM d, h:mm a');
+  } catch {
+    return displayDateTime(value.slice(0, 10));
+  }
 }
 
 const styles = StyleSheet.create({

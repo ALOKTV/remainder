@@ -17,8 +17,8 @@ import { formatCategory, getGreeting } from '../../utils/date';
 import { screenStyles } from '../common/screenStyles';
 import { theme as appTheme } from '../../constants/theme';
 import { useSettingsStore } from '../../store/settingsStore';
-import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
+import { AppIcon } from '../../components/AppIcon';
+import { format, parseISO } from 'date-fns';
 
 const emptyTask = { title: '', description: '', category: 'daily' as TaskCategory };
 
@@ -249,7 +249,7 @@ function TaskRow({ task, onOpen, onToggle }: { task: Task; onOpen: () => void; o
           },
         ]}
       >
-        {task.isCompleted ? <Ionicons name="checkmark" size={16} color="#ffffff" /> : null}
+        {task.isCompleted ? <AppIcon name="checkmark" size={16} color="#ffffff" /> : null}
       </Pressable>
       <Pressable onPress={onOpen} style={({ pressed }) => [styles.taskBody, { opacity: pressed ? 0.75 : 1 }]}> 
         <Text numberOfLines={1} style={[styles.taskTitle, { color: task.isCompleted ? theme.secondaryText : theme.text, textDecorationLine: task.isCompleted ? 'line-through' : 'none' }]}> 
@@ -265,14 +265,29 @@ function TaskRow({ task, onOpen, onToggle }: { task: Task; onOpen: () => void; o
             {formatCategory(task.category)}
           </Text>
         </View>
+        <View style={styles.dateMetaGroup}>
+          <Text style={[styles.dateMeta, { color: theme.secondaryText }]}>Created {formatTaskTimestamp(task.createdAt)}</Text>
+          <Text style={[styles.dateMeta, { color: theme.secondaryText }]}>Updated {formatTaskTimestamp(task.updatedAt)}</Text>
+          {task.lastCompletedAt ? (
+            <Text style={[styles.dateMeta, { color: theme.success }]}>Done {formatTaskTimestamp(task.lastCompletedAt)}</Text>
+          ) : null}
+        </View>
       </Pressable>
       <View style={styles.actionsContainer}>
          <Pressable onPress={onOpen} hitSlop={10} style={styles.iconBtn}>
-           <Ionicons name="pencil" size={20} color={theme.secondaryText} />
+           <AppIcon name="pencil" size={20} color={theme.secondaryText} />
          </Pressable>
       </View>
     </View>
   );
+}
+
+function formatTaskTimestamp(value: string): string {
+  try {
+    return format(parseISO(value), 'MMM d, yyyy h:mm a');
+  } catch {
+    return value;
+  }
 }
 
 const styles = StyleSheet.create({
@@ -349,6 +364,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 4,
+  },
+  dateMetaGroup: {
+    gap: 2,
+    marginTop: 4,
+  },
+  dateMeta: {
+    fontFamily: appTheme.typography.caption.fontFamily,
+    fontSize: 11,
+    lineHeight: 15,
   },
   taskMeta: {
     fontFamily: appTheme.typography.caption.fontFamily,

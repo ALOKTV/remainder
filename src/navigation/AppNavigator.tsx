@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../components/AppIcon';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { RootTabParamList } from '../types/navigation';
 import { NotesScreen } from '../screens/notes/NotesScreen';
@@ -43,7 +43,7 @@ export function AppNavigator() {
             ? (focused ? 'document-text' : 'document-text-outline')
             : (focused ? 'settings' : 'settings-outline');
 
-          return <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={24} color={color} />;
+          return <AppIcon name={icon} size={24} color={color} />;
         },
       })}
     >

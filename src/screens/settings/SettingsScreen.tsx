@@ -11,7 +11,7 @@ import { DatabaseInfo, ThemeMode } from '../../types/models';
 import { screenStyles } from '../common/screenStyles';
 import { theme as appTheme } from '../../constants/theme';
 import { accentColors, AccentColor } from '../../constants/colors';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../components/AppIcon';
 import ColorPicker, { Panel1, HueSlider, Preview } from 'reanimated-color-picker';
 
 export function SettingsScreen() {
@@ -93,7 +93,7 @@ export function SettingsScreen() {
                   ]}
                 >
                   {settings.accentColor === colorKey && (
-                    <Ionicons name="checkmark" size={24} color="#ffffff" />
+                    <AppIcon name="checkmark" size={24} color="#ffffff" />
                   )}
                 </Pressable>
               ))}
