@@ -1,22 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View, Pressable, Modal } from 'react-native';
 import { Button } from '../../components/Button';
+import { FormField } from '../../components/FormField';
 import { ConfirmDialog, ConfirmDialogConfig } from '../../components/ConfirmDialog';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { getDatabaseInfo } from '../../database/database';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { requestNotificationPermission } from '../../notifications/notificationService';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useNoteStore } from '../../store/noteStore';
+import { useReminderStore } from '../../store/reminderStore';
+import { useTaskStore } from '../../store/taskStore';
 import { DatabaseInfo, ThemeMode } from '../../types/models';
 import { screenStyles } from '../common/screenStyles';
 import { theme as appTheme } from '../../constants/theme';
 import { accentColors, AccentColor } from '../../constants/colors';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../components/AppIcon';
+import { getCurrentSession, signInWithEmail, signOut, signUpWithEmail } from '../../supabase/auth';
+import { pullCloudToLocal, pushLocalToCloud } from '../../supabase/sync';
 import ColorPicker, { Panel1, HueSlider, Preview } from 'reanimated-color-picker';
 
 export function SettingsScreen() {
   const theme = useThemeColors();
   const settings = useSettingsStore();
+  const taskStore = useTaskStore();
+  const reminderStore = useReminderStore();
+  const noteStore = useNoteStore();
   const isDark = settings.resolvedTheme === 'dark';
   const shadow = isDark ? appTheme.shadows.dark : appTheme.shadows.light;
   
@@ -25,9 +34,15 @@ export function SettingsScreen() {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<'theme' | 'background'>('theme');
   const [tempColor, setTempColor] = useState('#ffffff');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [signedInEmail, setSignedInEmail] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [syncLoading, setSyncLoading] = useState<'push' | 'pull' | null>(null);
 
   useEffect(() => {
     void getDatabaseInfo().then(setDbInfo);
+    void refreshAuthSession();
   }, []);
 
   async function enableNotifications(enabled: boolean) {
@@ -42,6 +57,78 @@ export function SettingsScreen() {
 
   function showInfo(title: string, message: string) {
     setDialog({ title, message, confirmLabel: 'OK', cancelLabel: null, onConfirm: () => undefined });
+  }
+
+  async function refreshAuthSession() {
+    try {
+      const session = await getCurrentSession();
+      setSignedInEmail(session?.user.email ?? null);
+    } catch {
+      setSignedInEmail(null);
+    }
+  }
+
+  async function handleAuth(action: 'sign-in' | 'sign-up') {
+    if (authLoading) return;
+    if (!authEmail.trim() || authPassword.length < 6) {
+      showInfo('Cloud Sync', 'Enter an email and a password with at least 6 characters.');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      const result = action === 'sign-in'
+        ? await signInWithEmail(authEmail, authPassword)
+        : await signUpWithEmail(authEmail, authPassword);
+      setSignedInEmail(result.user?.email ?? authEmail.trim());
+      setAuthPassword('');
+      showInfo('Cloud Sync', action === 'sign-in' ? 'Signed in successfully.' : 'Account created. You are signed in if email confirmation is disabled.');
+    } catch (error) {
+      showInfo('Cloud Sync Error', error instanceof Error ? error.message : 'Unable to complete authentication.');
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleSignOut() {
+    if (authLoading) return;
+    setAuthLoading(true);
+    try {
+      await signOut();
+      setSignedInEmail(null);
+      showInfo('Cloud Sync', 'Signed out successfully.');
+    } catch (error) {
+      showInfo('Cloud Sync Error', error instanceof Error ? error.message : 'Unable to sign out.');
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handlePushLocal() {
+    if (syncLoading) return;
+    setSyncLoading('push');
+    try {
+      const result = await pushLocalToCloud();
+      showInfo('Cloud Sync', `Pushed ${result.tasks} tasks, ${result.reminders} reminders, and ${result.notes} notes.`);
+    } catch (error) {
+      showInfo('Cloud Sync Error', error instanceof Error ? error.message : 'Unable to push local data.');
+    } finally {
+      setSyncLoading(null);
+    }
+  }
+
+  async function handlePullCloud() {
+    if (syncLoading) return;
+    setSyncLoading('pull');
+    try {
+      const result = await pullCloudToLocal();
+      await Promise.all([taskStore.load(), reminderStore.load(), noteStore.load(), getDatabaseInfo().then(setDbInfo)]);
+      showInfo('Cloud Sync', `Pulled ${result.tasks} tasks, ${result.reminders} reminders, and ${result.notes} notes.`);
+    } catch (error) {
+      showInfo('Cloud Sync Error', error instanceof Error ? error.message : 'Unable to pull cloud data.');
+    } finally {
+      setSyncLoading(null);
+    }
   }
 
   function changeThemeMode(mode: ThemeMode) {
@@ -93,7 +180,7 @@ export function SettingsScreen() {
                   ]}
                 >
                   {settings.accentColor === colorKey && (
-                    <Ionicons name="checkmark" size={24} color="#ffffff" />
+                    <AppIcon name="checkmark" size={24} color="#ffffff" />
                   )}
                 </Pressable>
               ))}
@@ -141,7 +228,43 @@ export function SettingsScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.secondaryText }]}>Cloud Sync (Beta)</Text>
           <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, shadow]}>
-            <Text style={[styles.infoText, { color: theme.secondaryText }]}>Supabase sync placeholder. Repositories isolate persistence so this can be added later without UI changes.</Text>
+            {signedInEmail ? (
+              <>
+                <View style={styles.dataRow}>
+                  <Text style={[styles.dataLabel, { color: theme.text }]}>Signed In</Text>
+                  <Text numberOfLines={1} style={[styles.dataValue, styles.authEmailValue, { color: theme.secondaryText }]}>{signedInEmail}</Text>
+                </View>
+                <View style={styles.buttonGroup}>
+                  <Button label="Push Local" loading={syncLoading === 'push'} disabled={!!syncLoading} onPress={() => void handlePushLocal()} />
+                  <Button label="Pull Cloud" variant="secondary" loading={syncLoading === 'pull'} disabled={!!syncLoading} onPress={() => void handlePullCloud()} />
+                  <Button label="Sign Out" variant="secondary" loading={authLoading} onPress={() => void handleSignOut()} />
+                </View>
+              </>
+            ) : (
+              <>
+                <FormField
+                  label="Email"
+                  value={authEmail}
+                  onChangeText={setAuthEmail}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  placeholder="you@example.com"
+                />
+                <FormField
+                  label="Password"
+                  value={authPassword}
+                  onChangeText={setAuthPassword}
+                  secureTextEntry
+                  placeholder="Minimum 6 characters"
+                />
+                <View style={styles.authButtonRow}>
+                  <Button label="Sign In" loading={authLoading} onPress={() => void handleAuth('sign-in')} style={styles.authButton} />
+                  <Button label="Sign Up" variant="secondary" loading={authLoading} onPress={() => void handleAuth('sign-up')} style={styles.authButton} />
+                </View>
+              </>
+            )}
+            <Text style={[styles.infoText, { color: theme.secondaryText }]}>Use Push Local to back up this device. After reinstalling, sign in and use Pull Cloud to restore saved data.</Text>
           </View>
         </View>
 
@@ -245,6 +368,18 @@ const styles = StyleSheet.create({
   buttonGroup: {
     gap: 12,
     marginTop: 8,
+  },
+  authButton: {
+    flex: 1,
+  },
+  authButtonRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  authEmailValue: {
+    flex: 1,
+    marginLeft: 12,
+    textAlign: 'right',
   },
   infoText: {
     fontFamily: appTheme.typography.body.fontFamily,

@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from './AppIcon';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { theme as appTheme } from '../constants/theme';
 import { useSettingsStore } from '../store/settingsStore';
@@ -17,7 +17,7 @@ export function ListCard({
   title: string;
   subtitle?: string;
   meta?: string;
-  iconName?: keyof typeof Ionicons.glyphMap;
+  iconName?: string;
   onPress?: () => void;
   right?: ReactNode;
   completed?: boolean;
@@ -41,7 +41,7 @@ export function ListCard({
         <View style={styles.body}>
           {iconName ? (
             <View style={[styles.iconContainer, { backgroundColor: completed ? theme.success + '22' : theme.surfaceMuted }]}> 
-              <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={24} color={completed ? theme.success : theme.primary} />
+              <AppIcon name={iconName} size={24} color={completed ? theme.success : theme.primary} />
             </View>
           ) : null}
           <View style={styles.textContainer}>

@@ -9,8 +9,6 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { useSettingsStore } from './src/store/settingsStore';
 import { colors, accentColors } from './src/constants/colors';
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
-
-
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function App() {

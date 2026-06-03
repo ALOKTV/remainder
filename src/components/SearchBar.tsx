@@ -1,13 +1,13 @@
 import React from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from './AppIcon';
 import { useThemeColors } from '../hooks/useThemeColors';
 
 export function SearchBar({ value, onChangeText, placeholder }: { value: string; onChangeText: (value: string) => void; placeholder: string }) {
   const theme = useThemeColors();
   return (
     <View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
-      <Ionicons name="search" size={20} color={theme.secondaryText} style={styles.icon} />
+      <AppIcon name="search" size={20} color={theme.secondaryText} style={styles.icon} />
       <TextInput
         autoCapitalize="none"
         placeholder={placeholder}
