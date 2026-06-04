@@ -1,9 +1,10 @@
-import { create } from 'zustand';
-import { cancelReminderNotifications, scheduleReminderNotification } from '../notifications/notificationService';
-import { reminderRepository, ReminderInput } from '../repositories/ReminderRepository';
-import { Reminder, SortMode } from '../types/models';
-import { isReminderPast } from '../utils/date';
-import { matchesSearch, sortByMode } from '../utils/filter';
+import { create } from "zustand";
+import { cancelReminderNotifications, scheduleReminderNotification } from "../notifications/notificationService";
+import { reminderRepository, ReminderInput } from "../repositories/ReminderRepository";
+import { Reminder, SortMode } from "../types/models";
+import { isReminderPast } from "../utils/date";
+import { matchesSearch, sortByMode } from "../utils/filter";
+import { queueCloudDelete, queueCloudPush } from "../supabase/autoSync";
 
 type ReminderState = {
   reminders: Reminder[];
@@ -26,14 +27,14 @@ export const useReminderStore = create<ReminderState>((set, get) => ({
   reminders: [],
   loading: false,
   error: null,
-  search: '',
-  sort: 'newest',
+  search: "",
+  sort: "newest",
   load: async () => {
     set({ loading: true, error: null });
     try {
       set({ reminders: await reminderRepository.list(), loading: false });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Unable to load reminders', loading: false });
+      set({ error: error instanceof Error ? error.message : "Unable to load reminders", loading: false });
     }
   },
   setSearch: (search) => set({ search }),
@@ -46,6 +47,7 @@ export const useReminderStore = create<ReminderState>((set, get) => ({
       console.warn("Reminder saved, but notification scheduling failed.", error);
     }
     await get().load();
+    void queueCloudPush();
   },
   updateReminder: async (id, input) => {
     await reminderRepository.update(id, input);
@@ -57,8 +59,10 @@ export const useReminderStore = create<ReminderState>((set, get) => ({
       console.warn("Reminder saved, but notification scheduling failed.", error);
     }
     await get().load();
+    void queueCloudPush();
   },
   deleteReminder: async (id) => {
+    await queueCloudDelete("reminders", id);
     await reminderRepository.delete(id);
     try {
       await cancelReminderNotifications(id);

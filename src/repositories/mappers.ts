@@ -1,8 +1,9 @@
-import { Note, NoteChecklistItem, NoteColor, Reminder, Task } from '../types/models';
+import { Note, NoteChecklistItem, NoteColor, Reminder, Task, TodayItem, WeekdayIndex } from '../types/models';
 
 type PersistedBoolean = number | boolean;
 
 export type TaskRow = Omit<Task, 'isCompleted'> & { isCompleted: PersistedBoolean };
+export type TodayItemRow = Omit<TodayItem, 'weekdays'> & { weekdays?: string | WeekdayIndex[] | null };
 export type ReminderRow = Omit<Reminder, 'notificationEnabled' | 'soundEnabled' | 'vibrationEnabled' | 'snoozeEnabled'> & {
   notificationEnabled: PersistedBoolean;
   soundEnabled: PersistedBoolean;
@@ -15,6 +16,10 @@ const NOTE_COLORS: NoteColor[] = ['default', 'coral', 'peach', 'yellow', 'mint',
 
 export function mapTask(row: TaskRow): Task {
   return { ...row, isCompleted: persistedBool(row.isCompleted) };
+}
+
+export function mapTodayItem(row: TodayItemRow): TodayItem {
+  return { ...row, weekdays: parseWeekdays(row.weekdays), date: row.date ?? null };
 }
 
 export function mapReminder(row: ReminderRow): Reminder {
@@ -39,6 +44,17 @@ function normalizeNoteColor(value: unknown): NoteColor {
   return typeof value === 'string' && NOTE_COLORS.includes(value as NoteColor) ? (value as NoteColor) : 'default';
 }
 
+function parseWeekdays(value: unknown): WeekdayIndex[] {
+  if (Array.isArray(value)) return value.filter(isWeekdayIndex);
+  if (typeof value !== 'string' || value.trim().length === 0) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(isWeekdayIndex) : [];
+  } catch {
+    return [];
+  }
+}
+
 function parseChecklist(value: unknown): NoteChecklistItem[] {
   if (Array.isArray(value)) return value.filter(isChecklistItem);
   if (typeof value !== 'string' || value.trim().length === 0) return [];
@@ -54,6 +70,10 @@ function isChecklistItem(value: unknown): value is NoteChecklistItem {
   if (!value || typeof value !== 'object') return false;
   const item = value as Partial<NoteChecklistItem>;
   return typeof item.id === 'string' && typeof item.text === 'string' && typeof item.checked === 'boolean';
+}
+
+function isWeekdayIndex(value: unknown): value is WeekdayIndex {
+  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 6;
 }
 
 function persistedBool(value: PersistedBoolean): boolean {
