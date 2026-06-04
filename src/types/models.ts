@@ -1,4 +1,5 @@
 export type TaskCategory = 'daily' | 'weekly' | 'monthly';
+export type WeekdayIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export type ReminderRepeatType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
 export type SortMode = 'newest' | 'oldest' | 'alphabetical';
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -13,6 +14,16 @@ export interface Task {
   updatedAt: string;
   isCompleted: boolean;
   lastCompletedAt: string | null;
+}
+
+export interface TodayItem {
+  id: string;
+  title: string;
+  description: string;
+  weekdays: WeekdayIndex[];
+  date: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Reminder {
@@ -49,6 +60,7 @@ export interface Note {
 
 export interface DatabaseInfo {
   taskCount: number;
+  todayItemCount: number;
   reminderCount: number;
   noteCount: number;
   migrationVersion: number;

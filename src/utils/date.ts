@@ -1,5 +1,8 @@
 import { format, isBefore, parseISO, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
-import { Task, TaskCategory } from '../types/models';
+import { Task, TaskCategory, TodayItem, WeekdayIndex } from '../types/models';
+
+const TASK_RESET_HOUR = 2;
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
 export function nowIso(): string {
   return new Date().toISOString();
@@ -33,19 +36,58 @@ export function isReminderPast(date: string, time: string): boolean {
   return isBefore(parseReminderDate(date, time), new Date());
 }
 
-export function shouldResetTask(task: Task, today = new Date()): boolean {
+export function isTodayItemDue(item: TodayItem, current = new Date()): boolean {
+  if (item.date) return item.date === dateKey(current);
+  if (item.weekdays.length === 0) return true;
+  return item.weekdays.includes(current.getDay() as WeekdayIndex);
+}
+
+export function formatTodayItemSchedule(item: TodayItem): string {
+  if (item.date) return 'On ' + displayDate(item.date);
+  if (item.weekdays.length === 0) return 'Every day';
+  return item.weekdays.map((day) => WEEKDAY_LABELS[day]).join(', ');
+}
+
+export function displayDate(date: string): string {
+  return format(parseISO(date), 'PP');
+}
+
+export function shouldResetTask(task: Task, current = new Date()): boolean {
   if (!task.isCompleted || !task.lastCompletedAt) return false;
   const completed = parseISO(task.lastCompletedAt);
-  switch (task.category) {
+  return isBefore(completed, getTaskResetBoundary(task.category, current));
+}
+
+export function getTaskResetBoundary(category: TaskCategory, current = new Date()): Date {
+  switch (category) {
     case 'daily':
-      return isBefore(completed, startOfDay(today));
+      return latestBoundary(startOfDay(current), current, 'day');
     case 'weekly':
-      return isBefore(completed, startOfWeek(today, { weekStartsOn: 1 }));
+      return latestBoundary(startOfWeek(current, { weekStartsOn: 1 }), current, 'week');
     case 'monthly':
-      return isBefore(completed, startOfMonth(today));
+      return latestBoundary(startOfMonth(current), current, 'month');
     default:
-      return false;
+      return current;
   }
+}
+
+export function getNextTaskResetAt(current = new Date()): Date {
+  const nextReset = startOfDay(current);
+  nextReset.setHours(TASK_RESET_HOUR, 0, 0, 0);
+  if (!isBefore(current, nextReset)) nextReset.setDate(nextReset.getDate() + 1);
+  return nextReset;
+}
+
+function latestBoundary(periodStart: Date, current: Date, period: 'day' | 'week' | 'month'): Date {
+  const boundary = new Date(periodStart);
+  boundary.setHours(TASK_RESET_HOUR, 0, 0, 0);
+  if (!isBefore(current, boundary)) return boundary;
+
+  const previous = new Date(boundary);
+  if (period === 'day') previous.setDate(previous.getDate() - 1);
+  if (period === 'week') previous.setDate(previous.getDate() - 7);
+  if (period === 'month') previous.setMonth(previous.getMonth() - 1);
+  return previous;
 }
 
 export function formatCategory(category: TaskCategory): string {

@@ -6,15 +6,22 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initDatabase } from './src/database/database';
 import { registerNotificationHandlers } from './src/notifications/notificationService';
 import { AppNavigator } from './src/navigation/AppNavigator';
+import { AuthGate } from './src/supabase/AuthGate';
+import { CloudSyncScheduler } from './src/supabase/CloudSyncScheduler';
+import { TaskResetScheduler } from './src/tasks/TaskResetScheduler';
 import { useSettingsStore } from './src/store/settingsStore';
 import { colors, accentColors } from './src/constants/colors';
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getCurrentSession } from './src/supabase/auth';
+import { getSupabaseClient } from './src/supabase/client';
 
 export default function App() {
   const [ready, setReady] = useState(false);
   const [bootError, setBootError] = useState<Error | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const { hydrate, resolvedTheme, accentColor, backgroundColorOverride } = useSettingsStore();
 
   const [fontsLoaded, fontError] = useFonts({
@@ -33,7 +40,12 @@ export default function App() {
         await initDatabase();
         registerNotificationHandlers();
         await hydrate();
-        if (mounted) setReady(true);
+        const session = await getCurrentSession().catch(() => null);
+        if (mounted) {
+          setAuthenticated(!!session);
+          setAuthChecked(true);
+          setReady(true);
+        }
       } catch (error) {
         console.error('App bootstrap failed', error);
         if (mounted) setBootError(error instanceof Error ? error : new Error('Unable to start the app.'));
@@ -48,6 +60,23 @@ export default function App() {
   useEffect(() => {
     if (fontError) console.error('Font loading failed', fontError);
   }, [fontError]);
+
+  useEffect(() => {
+    if (!ready) return;
+    let subscription: { unsubscribe: () => void } | null = null;
+    try {
+      const { data } = getSupabaseClient().auth.onAuthStateChange((_event, session) => {
+        setAuthenticated(!!session);
+      });
+      subscription = data.subscription;
+    } catch (error) {
+      console.warn('Unable to watch auth state.', error);
+    }
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, [ready]);
 
   const isDark = resolvedTheme === 'dark';
   const theme = useMemo(() => {
@@ -85,12 +114,17 @@ export default function App() {
     );
   }
 
-  if (!ready || !fontsReady) {
+  if (!ready || !fontsReady || !authChecked) {
     return (
       <View style={[styles.loading, { backgroundColor: isDark ? '#0f172a' : '#fdfbfb' }]}>
         <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
+  }
+
+
+  if (!authenticated) {
+    return <AuthGate onAuthenticated={() => setAuthenticated(true)} />;
   }
 
   return (
@@ -103,6 +137,8 @@ export default function App() {
       />
       <NavigationContainer theme={theme}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
+        <CloudSyncScheduler />
+        <TaskResetScheduler />
         <AppNavigator />
       </NavigationContainer>
     </SafeAreaProvider>

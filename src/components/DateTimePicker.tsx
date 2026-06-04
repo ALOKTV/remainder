@@ -18,7 +18,7 @@ const monthOptions = Array.from({ length: 12 }, (_, index) => ({
   value: index + 1,
 }));
 const hourOptions = Array.from({ length: 12 }, (_, index) => index + 1);
-const minuteOptions = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, '0'));
+const minuteOptions = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'));
 
 export function DateTimePicker({ label, value, mode, onChange }: Props) {
   const theme = useThemeColors();
@@ -147,8 +147,8 @@ function parseDateParts(value: string): { year: number; month: number; day: numb
 function parseTimeParts(value: string): { hour12: number; minute: string; period: 'AM' | 'PM' } {
   const [rawHour = '0', rawMinute = '00'] = value.split(':');
   const hour24 = Number(rawHour) || 0;
-  const roundedMinute = Math.min(55, Math.round((Number(rawMinute) || 0) / 5) * 5);
-  return { hour12: hour24 % 12 || 12, minute: String(roundedMinute).padStart(2, '0'), period: hour24 >= 12 ? 'PM' : 'AM' };
+  const minute = Math.min(59, Math.max(0, Number(rawMinute) || 0));
+  return { hour12: hour24 % 12 || 12, minute: String(minute).padStart(2, '0'), period: hour24 >= 12 ? 'PM' : 'AM' };
 }
 
 function displayDate(value: string): string {

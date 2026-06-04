@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { taskRepository, TaskInput } from '../repositories/TaskRepository';
 import { SortMode, Task, TaskCategory } from '../types/models';
 import { matchesSearch, sortByMode } from '../utils/filter';
+import { queueCloudDelete, queueCloudPush } from '../supabase/autoSync';
 
 type TaskState = {
   tasks: Task[];
@@ -45,27 +46,33 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   createTask: async (input) => {
     await taskRepository.create(input);
     await get().load();
+    void queueCloudPush();
   },
   updateTask: async (id, input) => {
     await taskRepository.update(id, input);
     await get().load();
+    void queueCloudPush();
   },
   deleteTask: async (id) => {
+    await queueCloudDelete('tasks', id);
     await taskRepository.delete(id);
     await get().load();
   },
   setCompleted: async (id, completed) => {
     await taskRepository.setCompleted(id, completed);
     await get().load();
+    void queueCloudPush();
   },
   setManyCompleted: async (ids, completed) => {
     await Promise.all(ids.map((id) => taskRepository.setCompleted(id, completed)));
     await get().load();
+    void queueCloudPush();
   },
   clearCompleted: async (category) => {
     const completedTasks = get().tasks.filter((task) => task.isCompleted && (category === 'all' || task.category === category));
     await Promise.all(completedTasks.map((task) => taskRepository.setCompleted(task.id, false)));
     await get().load();
+    void queueCloudPush();
   },
   filteredTasks: () => {
     const { tasks, search, category, sort } = get();

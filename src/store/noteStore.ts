@@ -1,7 +1,8 @@
-import { create } from 'zustand';
-import { NoteInput, noteRepository } from '../repositories/NoteRepository';
-import { Note, SortMode } from '../types/models';
-import { matchesSearch, sortByMode } from '../utils/filter';
+import { create } from "zustand";
+import { NoteInput, noteRepository } from "../repositories/NoteRepository";
+import { Note, SortMode } from "../types/models";
+import { matchesSearch, sortByMode } from "../utils/filter";
+import { queueCloudDelete, queueCloudPush } from "../supabase/autoSync";
 
 type NoteState = {
   notes: Note[];
@@ -22,14 +23,14 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   notes: [],
   loading: false,
   error: null,
-  search: '',
-  sort: 'newest',
+  search: "",
+  sort: "newest",
   load: async () => {
     set({ loading: true, error: null });
     try {
       set({ notes: await noteRepository.list(), loading: false });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Unable to load notes', loading: false });
+      set({ error: error instanceof Error ? error.message : "Unable to load notes", loading: false });
     }
   },
   setSearch: (search) => set({ search }),
@@ -37,12 +38,15 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   createNote: async (input) => {
     await noteRepository.create(input);
     await get().load();
+    void queueCloudPush();
   },
   updateNote: async (id, input) => {
     await noteRepository.update(id, input);
     await get().load();
+    void queueCloudPush();
   },
   deleteNote: async (id) => {
+    await queueCloudDelete("notes", id);
     await noteRepository.delete(id);
     await get().load();
   },

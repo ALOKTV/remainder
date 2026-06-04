@@ -7,6 +7,7 @@ import { NotesScreen } from '../screens/notes/NotesScreen';
 import { RemindersScreen } from '../screens/reminders/RemindersScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { TasksScreen } from '../screens/tasks/TasksScreen';
+import { TodayScreen } from '../screens/today/TodayScreen';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { theme as appTheme } from '../constants/theme';
 import { useSettingsStore } from '../store/settingsStore';
@@ -37,8 +38,10 @@ export function AppNavigator() {
         tabBarIcon: ({ color, focused }) => {
           const icon = route.name === 'Tasks'
             ? (focused ? 'checkmark-circle' : 'checkmark-circle-outline')
-            : route.name === 'Reminders'
+            : route.name === 'Today'
             ? (focused ? 'calendar' : 'calendar-outline')
+            : route.name === 'Reminders'
+            ? (focused ? 'time' : 'time-outline')
             : route.name === 'Notes'
             ? (focused ? 'document-text' : 'document-text-outline')
             : (focused ? 'settings' : 'settings-outline');
@@ -48,6 +51,7 @@ export function AppNavigator() {
       })}
     >
       <Tab.Screen name="Tasks" component={TasksScreen} />
+      <Tab.Screen name="Today" component={TodayScreen} />
       <Tab.Screen name="Reminders" component={RemindersScreen} />
       <Tab.Screen name="Notes" component={NotesScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />

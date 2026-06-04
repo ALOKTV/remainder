@@ -49,6 +49,18 @@ const migrations: Array<{ version: number; sql: string }> = [
       "ALTER TABLE notes ADD COLUMN color TEXT NOT NULL DEFAULT 'default';" +
       "ALTER TABLE notes ADD COLUMN checklist TEXT NOT NULL DEFAULT '[]';",
   },
+  {
+    version: 3,
+    sql: "CREATE TABLE IF NOT EXISTS todayItems (" +
+      "id TEXT PRIMARY KEY NOT NULL," +
+      "title TEXT NOT NULL," +
+      "description TEXT NOT NULL DEFAULT ''," +
+      "weekdays TEXT NOT NULL DEFAULT '[]'," +
+      "date TEXT," +
+      "createdAt TEXT NOT NULL," +
+      "updatedAt TEXT NOT NULL" +
+      ");",
+  },
 ];
 
 export async function getDb(): Promise<SQLite.SQLiteDatabase> {
@@ -93,8 +105,9 @@ export async function getMigrationVersion(): Promise<number> {
 
 export async function getDatabaseInfo(): Promise<DatabaseInfo> {
   const database = await getDb();
-  const [taskCount, reminderCount, noteCount, migrationVersion] = await Promise.all([
+  const [taskCount, todayItemCount, reminderCount, noteCount, migrationVersion] = await Promise.all([
     database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM tasks'),
+    database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM todayItems'),
     database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM reminders'),
     database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM notes'),
     getMigrationVersion(),
@@ -102,6 +115,7 @@ export async function getDatabaseInfo(): Promise<DatabaseInfo> {
 
   return {
     taskCount: taskCount?.count ?? 0,
+    todayItemCount: todayItemCount?.count ?? 0,
     reminderCount: reminderCount?.count ?? 0,
     noteCount: noteCount?.count ?? 0,
     migrationVersion,

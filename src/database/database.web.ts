@@ -1,7 +1,8 @@
-import { DatabaseInfo, Note, Reminder, Task } from '../types/models';
+import { DatabaseInfo, Note, Reminder, Task, TodayItem, WeekdayIndex } from '../types/models';
 
 type WebData = {
   tasks: Task[];
+  todayItems: TodayItem[];
   reminders: Reminder[];
   notes: Note[];
   migrationVersion: number;
@@ -28,6 +29,10 @@ export async function initDatabase(): Promise<void> {
   if (data.migrationVersion < 2) {
     writeData({ ...data, notes: normalizeNotes(data.notes), migrationVersion: 2 });
   }
+  const migrated = readData();
+  if (migrated.migrationVersion < 3) {
+    writeData({ ...migrated, todayItems: normalizeTodayItems(migrated.todayItems), migrationVersion: 3 });
+  }
 }
 
 export async function getMigrationVersion(): Promise<number> {
@@ -38,6 +43,7 @@ export async function getDatabaseInfo(): Promise<DatabaseInfo> {
   const data = readData();
   return {
     taskCount: data.tasks.length,
+    todayItemCount: data.todayItems.length,
     reminderCount: data.reminders.length,
     noteCount: data.notes.length,
     migrationVersion: data.migrationVersion,
@@ -106,6 +112,44 @@ function runStatement(sql: string, params: unknown[]): void {
 
   if (normalized.startsWith('delete from tasks')) {
     data.tasks = data.tasks.filter((task) => task.id !== params[0]);
+    writeData(data);
+    return;
+  }
+
+  if (normalized.startsWith('insert into todayitems')) {
+    data.todayItems.unshift({
+      id: stringParam(params[0]),
+      title: stringParam(params[1]),
+      description: stringParam(params[2]),
+      weekdays: weekdaysParam(params[3]),
+      date: nullableStringParam(params[4]),
+      createdAt: stringParam(params[5]),
+      updatedAt: stringParam(params[6]),
+    });
+    writeData(data);
+    return;
+  }
+
+  if (normalized.startsWith('update todayitems set')) {
+    const [title, description, weekdays, date, updatedAt, id] = params;
+    data.todayItems = data.todayItems.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            title: stringParam(title),
+            description: stringParam(description),
+            weekdays: weekdaysParam(weekdays),
+            date: nullableStringParam(date),
+            updatedAt: stringParam(updatedAt),
+          }
+        : item,
+    );
+    writeData(data);
+    return;
+  }
+
+  if (normalized.startsWith('delete from todayitems')) {
+    data.todayItems = data.todayItems.filter((item) => item.id !== params[0]);
     writeData(data);
     return;
   }
@@ -202,6 +246,7 @@ function selectAll<T>(sql: string): T[] {
   const normalized = normalizeSql(sql);
   const data = readData();
   if (normalized.includes('from tasks')) return sortRows(data.tasks, 'createdAt', 'desc') as T[];
+  if (normalized.includes('from todayitems')) return sortRows(data.todayItems, 'createdAt', 'desc') as T[];
   if (normalized.includes('from reminders')) return [...data.reminders].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)) as T[];
   if (normalized.includes('from notes')) return sortRows(data.notes, 'updatedAt', 'desc') as T[];
   return [];
@@ -212,6 +257,7 @@ function selectFirst<T>(sql: string): T | null {
   const data = readData();
   if (normalized.includes('from schema_migrations')) return { version: data.migrationVersion } as T;
   if (normalized.includes('count(*)') && normalized.includes('from tasks')) return { count: data.tasks.length } as T;
+  if (normalized.includes('count(*)') && normalized.includes('from todayitems')) return { count: data.todayItems.length } as T;
   if (normalized.includes('count(*)') && normalized.includes('from reminders')) return { count: data.reminders.length } as T;
   if (normalized.includes('count(*)') && normalized.includes('from notes')) return { count: data.notes.length } as T;
   return null;
@@ -223,7 +269,7 @@ function readData(): WebData {
   if (!raw) return emptyData();
   try {
     const parsed = { ...emptyData(), ...JSON.parse(raw) } as WebData;
-    return { ...parsed, notes: normalizeNotes(parsed.notes) };
+    return { ...parsed, todayItems: normalizeTodayItems(parsed.todayItems), notes: normalizeNotes(parsed.notes) };
   } catch {
     return emptyData();
   }
@@ -236,7 +282,7 @@ function writeData(data: WebData): void {
 }
 
 function emptyData(): WebData {
-  return { tasks: [], reminders: [], notes: [], migrationVersion: 0 };
+  return { tasks: [], todayItems: [], reminders: [], notes: [], migrationVersion: 0 };
 }
 
 function normalizeSql(sql: string): string {
@@ -268,6 +314,24 @@ function numberParam(value: unknown): number {
   return Number.isFinite(number) ? number : 0;
 }
 
+function normalizeTodayItems(items: TodayItem[]): TodayItem[] {
+  return Array.isArray(items) ? items.map((item) => ({ ...item, weekdays: weekdaysParam(item.weekdays), date: item.date ?? null })) : [];
+}
+
+function weekdaysParam(value: unknown): WeekdayIndex[] {
+  if (Array.isArray(value)) return value.filter(isWeekdayIndex);
+  if (typeof value !== 'string' || value.trim().length === 0) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(isWeekdayIndex) : [];
+  } catch {
+    return [];
+  }
+}
+
+function isWeekdayIndex(value: unknown): value is WeekdayIndex {
+  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 6;
+}
 
 function normalizeNotes(notes: Note[]): Note[] {
   return notes.map((note) => ({

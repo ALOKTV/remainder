@@ -11,19 +11,21 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useNoteStore } from '../../store/noteStore';
 import { useReminderStore } from '../../store/reminderStore';
 import { useTaskStore } from '../../store/taskStore';
+import { useTodayItemStore } from '../../store/todayItemStore';
 import { DatabaseInfo, ThemeMode } from '../../types/models';
 import { screenStyles } from '../common/screenStyles';
 import { theme as appTheme } from '../../constants/theme';
 import { accentColors, AccentColor } from '../../constants/colors';
 import { AppIcon } from '../../components/AppIcon';
 import { getCurrentSession, signInWithEmail, signOut, signUpWithEmail } from '../../supabase/auth';
-import { pullCloudToLocal, pushLocalToCloud } from '../../supabase/sync';
+import { syncCloudNow } from '../../supabase/autoSync';
 import ColorPicker, { Panel1, HueSlider, Preview } from 'reanimated-color-picker';
 
 export function SettingsScreen() {
   const theme = useThemeColors();
   const settings = useSettingsStore();
   const taskStore = useTaskStore();
+  const todayItemStore = useTodayItemStore();
   const reminderStore = useReminderStore();
   const noteStore = useNoteStore();
   const isDark = settings.resolvedTheme === 'dark';
@@ -59,6 +61,10 @@ export function SettingsScreen() {
     setDialog({ title, message, confirmLabel: 'OK', cancelLabel: null, onConfirm: () => undefined });
   }
 
+  async function reloadLocalData() {
+    await Promise.all([taskStore.load(), todayItemStore.load(), reminderStore.load(), noteStore.load(), getDatabaseInfo().then(setDbInfo)]);
+  }
+
   async function refreshAuthSession() {
     try {
       const session = await getCurrentSession();
@@ -82,7 +88,9 @@ export function SettingsScreen() {
         : await signUpWithEmail(authEmail, authPassword);
       setSignedInEmail(result.user?.email ?? authEmail.trim());
       setAuthPassword('');
-      showInfo('Cloud Sync', action === 'sign-in' ? 'Signed in successfully.' : 'Account created. You are signed in if email confirmation is disabled.');
+      await syncCloudNow({ pull: true, push: true });
+      await reloadLocalData();
+      showInfo('Cloud Sync', action === 'sign-in' ? 'Signed in successfully. Data synced.' : 'Account created. Data synced if the session is active.');
     } catch (error) {
       showInfo('Cloud Sync Error', error instanceof Error ? error.message : 'Unable to complete authentication.');
     } finally {
@@ -108,8 +116,8 @@ export function SettingsScreen() {
     if (syncLoading) return;
     setSyncLoading('push');
     try {
-      const result = await pushLocalToCloud();
-      showInfo('Cloud Sync', `Pushed ${result.tasks} tasks, ${result.reminders} reminders, and ${result.notes} notes.`);
+      const result = await syncCloudNow({ pull: false, push: true });
+      showInfo('Cloud Sync', 'Pushed ' + result.tasks + ' tasks, ' + result.todayItems + ' today items, ' + result.reminders + ' reminders, and ' + result.notes + ' notes.');
     } catch (error) {
       showInfo('Cloud Sync Error', error instanceof Error ? error.message : 'Unable to push local data.');
     } finally {
@@ -121,9 +129,9 @@ export function SettingsScreen() {
     if (syncLoading) return;
     setSyncLoading('pull');
     try {
-      const result = await pullCloudToLocal();
-      await Promise.all([taskStore.load(), reminderStore.load(), noteStore.load(), getDatabaseInfo().then(setDbInfo)]);
-      showInfo('Cloud Sync', `Pulled ${result.tasks} tasks, ${result.reminders} reminders, and ${result.notes} notes.`);
+      const result = await syncCloudNow({ pull: true, push: false });
+      await reloadLocalData();
+      showInfo('Cloud Sync', 'Pulled ' + result.tasks + ' tasks, ' + result.todayItems + ' today items, ' + result.reminders + ' reminders, and ' + result.notes + ' notes.');
     } catch (error) {
       showInfo('Cloud Sync Error', error instanceof Error ? error.message : 'Unable to pull cloud data.');
     } finally {
@@ -205,6 +213,10 @@ export function SettingsScreen() {
             <View style={styles.dataRow}>
               <Text style={[styles.dataLabel, { color: theme.text }]}>Tasks</Text>
               <Text style={[styles.dataValue, { color: theme.secondaryText }]}>{dbInfo?.taskCount ?? 0}</Text>
+            </View>
+            <View style={styles.dataRow}>
+              <Text style={[styles.dataLabel, { color: theme.text }]}>Today</Text>
+              <Text style={[styles.dataValue, { color: theme.secondaryText }]}>{dbInfo?.todayItemCount ?? 0}</Text>
             </View>
             <View style={styles.dataRow}>
               <Text style={[styles.dataLabel, { color: theme.text }]}>Reminders</Text>
