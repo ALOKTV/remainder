@@ -1,7 +1,7 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, Text, ViewStyle } from 'react-native';
 import { useThemeColors } from '../hooks/useThemeColors';
-import { theme as appTheme } from '../constants/theme';
+import { styles } from './Button.styles';
 
 type Props = {
   label: string;
@@ -39,19 +39,3 @@ export function Button({ label, onPress, variant = 'primary', disabled = false, 
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    borderRadius: 10,
-    justifyContent: 'center',
-    minHeight: 48,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  label: {
-    fontFamily: appTheme.typography.bodyLarge.fontFamily,
-    fontSize: appTheme.typography.bodyLarge.fontSize,
-    lineHeight: appTheme.typography.bodyLarge.lineHeight,
-  },
-});

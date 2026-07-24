@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import { Text, TextInput, TextInputProps, View } from 'react-native';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { styles } from './FormField.styles';
 
 export function FormField({ label, ...inputProps }: { label: string } & TextInputProps) {
   const theme = useThemeColors();
@@ -20,26 +21,3 @@ export function FormField({ label, ...inputProps }: { label: string } & TextInpu
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: 8,
-  },
-  input: {
-    borderRadius: 8,
-    borderWidth: 1,
-    fontSize: 16,
-    minHeight: 48,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  multiline: {
-    minHeight: 120,
-    textAlignVertical: 'top',
-  },
-});

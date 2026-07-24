@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { AppIcon } from '../components/AppIcon';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { RootTabParamList } from '../types/navigation';
@@ -11,6 +11,7 @@ import { TodayScreen } from '../screens/today/TodayScreen';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { theme as appTheme } from '../constants/theme';
 import { useSettingsStore } from '../store/settingsStore';
+import { styles } from './AppNavigator.styles';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
@@ -28,12 +29,15 @@ export function AppNavigator() {
         tabBarLabelStyle: styles.label,
         tabBarStyle: {
           ...styles.tabBar,
-          backgroundColor: theme.surface,
+          backgroundColor: 'transparent',
           borderTopColor: 'transparent',
-          ...(isDark ? appTheme.shadows.dark : appTheme.shadows.light),
         },
         tabBarBackground: () => (
-          <View style={[styles.tabBarBackground, { backgroundColor: theme.surface }]} />
+          <View style={[
+            styles.tabBarBackground, 
+            { backgroundColor: theme.surface + 'DD' },
+            isDark ? { ...appTheme.shadows.dark, shadowOpacity: 0.4, shadowRadius: 20 } : { ...appTheme.shadows.light, shadowOpacity: 0.15, shadowRadius: 20 }
+          ]} />
         ),
         tabBarIcon: ({ color, focused }) => {
           const icon = route.name === 'Tasks'
@@ -58,28 +62,3 @@ export function AppNavigator() {
     </Tab.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  label: {
-    fontFamily: appTheme.typography.caption.fontFamily,
-    fontSize: 10,
-    marginTop: -4,
-    marginBottom: 8,
-  },
-  tabBar: {
-    position: 'absolute',
-    bottom: 24,
-    left: 20,
-    right: 20,
-    elevation: 8,
-    height: 72,
-    borderRadius: appTheme.radius.pill,
-    paddingTop: 12,
-    paddingBottom: 0,
-    borderTopWidth: 0,
-  },
-  tabBarBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: appTheme.radius.pill,
-  },
-});

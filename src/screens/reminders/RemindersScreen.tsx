@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Switch, Text, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, FlatList, Switch, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { FAB } from '../../components/FAB';
 import { ConfirmDialog, ConfirmDialogConfig } from '../../components/ConfirmDialog';
@@ -8,6 +8,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import { FormField } from '../../components/FormField';
 import { ItemModal } from '../../components/ItemModal';
+import { InfoModal } from '../../components/InfoModal';
 import { ListCard } from '../../components/ListCard';
 import { SearchBar } from '../../components/SearchBar';
 import { SegmentedControl } from '../../components/SegmentedControl';
@@ -15,10 +16,13 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useReminderStore } from '../../store/reminderStore';
 import { Reminder, ReminderRepeatType } from '../../types/models';
 import { dateKey, displayDateTime, timeKey } from '../../utils/date';
+import { format, parseISO } from 'date-fns';
 import { screenStyles } from '../common/screenStyles';
+import { WaveBackground } from '../../components/WaveBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme as appTheme } from '../../constants/theme';
 import { useSettingsStore } from '../../store/settingsStore';
+import { styles } from './RemindersScreen.styles';
 
 const blankReminder = {
   title: '',
@@ -40,6 +44,7 @@ export function RemindersScreen() {
   const isDark = resolvedTheme === 'dark';
   
   const [editing, setEditing] = useState<Reminder | null>(null);
+  const [viewing, setViewing] = useState<Reminder | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm] = useState(blankReminder);
   const [confirm, setConfirm] = useState<ConfirmDialogConfig | null>(null);
@@ -120,6 +125,7 @@ export function RemindersScreen() {
 
   return (
     <View style={[screenStyles.container, { backgroundColor: theme.background }]}>
+      <WaveBackground />
       <View style={screenStyles.header}>
         <Text style={[screenStyles.title, { color: theme.text }]}>Reminders</Text>
 
@@ -134,7 +140,7 @@ export function RemindersScreen() {
         </LinearGradient>
 
         <SearchBar value={store.search} onChangeText={store.setSearch} placeholder="Search reminders" />
-        <View style={{ marginTop: 8 }}>
+        <View style={styles.sortControlWrap}>
           <SegmentedControl
             value={store.sort}
             options={[{ label: 'Newest', value: 'newest' }, { label: 'Oldest', value: 'oldest' }, { label: 'A-Z', value: 'alphabetical' }]}
@@ -154,18 +160,35 @@ export function RemindersScreen() {
         renderItem={({ item, index }) => {
           const showHeader = index === 0 || data[index - 1].section !== item.section;
           return (
-            <View style={{ gap: 8 }}>
+            <View style={styles.sectionGroup}>
               {showHeader ? <Text style={[styles.sectionTitle, { color: theme.text }]}>{item.section}</Text> : null}
               <ListCard
                 title={item.item.title}
                 subtitle={item.item.description}
                 meta={`${displayDateTime(item.item.date, item.item.time)} - ${item.item.repeatType}`}
                 iconName={item.item.notificationEnabled ? "notifications" : "notifications-off-outline"}
-                onPress={() => openEdit(item.item)}
+                onPress={() => setViewing(item.item)}
+                onEdit={() => openEdit(item.item)}
               />
             </View>
           );
         }}
+      />
+      <InfoModal
+        visible={!!viewing}
+        title={viewing?.title ?? ''}
+        description={viewing?.description}
+        rows={[
+          { label: 'When', value: viewing ? displayDateTime(viewing.date, viewing.time) : null },
+          { label: 'Repeat', value: viewing?.repeatType },
+          { label: 'Notifications', value: viewing ? formatEnabled(viewing.notificationEnabled) : null },
+          { label: 'Sound', value: viewing ? formatEnabled(viewing.soundEnabled) : null },
+          { label: 'Vibration', value: viewing ? formatEnabled(viewing.vibrationEnabled) : null },
+          { label: 'Snooze', value: viewing?.snoozeEnabled ? `${viewing.snoozeMinutes} minutes` : viewing ? 'Off' : null },
+          { label: 'Created', value: viewing ? formatReminderTimestamp(viewing.createdAt) : null },
+          { label: 'Updated', value: viewing ? formatReminderTimestamp(viewing.updatedAt) : null },
+        ]}
+        onClose={() => setViewing(null)}
       />
       <ItemModal
         visible={modalVisible}
@@ -208,6 +231,18 @@ export function RemindersScreen() {
   );
 }
 
+function formatEnabled(value: boolean): string {
+  return value ? 'On' : 'Off';
+}
+
+function formatReminderTimestamp(value: string): string {
+  try {
+    return format(parseISO(value), 'MMM d, yyyy h:mm a');
+  } catch {
+    return value;
+  }
+}
+
 function SettingSwitch({ label, value, onValueChange }: { label: string; value: boolean; onValueChange: (value: boolean) => void }) {
   const theme = useThemeColors();
   return (
@@ -217,39 +252,3 @@ function SettingSwitch({ label, value, onValueChange }: { label: string; value: 
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  summaryCard: {
-    borderRadius: appTheme.radius.card,
-    padding: 24,
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  summaryTitle: {
-    fontFamily: appTheme.typography.heading.fontFamily,
-    fontSize: 28,
-    color: '#ffffff',
-  },
-  summarySubtitle: {
-    fontFamily: appTheme.typography.bodyLarge.fontFamily,
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
-  },
-  sectionTitle: {
-    fontFamily: appTheme.typography.title.fontFamily,
-    fontSize: 20,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  settingSwitchRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  settingSwitchLabel: {
-    fontFamily: appTheme.typography.bodyLarge.fontFamily,
-    fontSize: appTheme.typography.bodyLarge.fontSize,
-  },
-});

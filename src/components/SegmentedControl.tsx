@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { styles } from './SegmentedControl.styles';
 
 type Option<T extends string> = { label: string; value: T };
 
@@ -31,24 +32,3 @@ export function SegmentedControl<T extends string>({ value, options, onChange }:
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 4,
-    padding: 4,
-  },
-  item: {
-    alignItems: 'center',
-    borderRadius: 6,
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: 38,
-    paddingHorizontal: 8,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-});

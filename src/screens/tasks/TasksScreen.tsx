@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { ConfirmDialog, ConfirmDialogConfig } from '../../components/ConfirmDialog';
 import { Dropdown } from '../../components/Dropdown';
@@ -8,6 +8,7 @@ import { ErrorBanner } from '../../components/ErrorBanner';
 import { FAB } from '../../components/FAB';
 import { FormField } from '../../components/FormField';
 import { ItemModal } from '../../components/ItemModal';
+import { InfoModal } from '../../components/InfoModal';
 import { SearchBar } from '../../components/SearchBar';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -18,7 +19,9 @@ import { screenStyles } from '../common/screenStyles';
 import { theme as appTheme } from '../../constants/theme';
 import { useSettingsStore } from '../../store/settingsStore';
 import { AppIcon } from '../../components/AppIcon';
+import { WaveBackground } from '../../components/WaveBackground';
 import { format, parseISO } from 'date-fns';
+import { styles } from './TasksScreen.styles';
 
 const emptyTask = { title: '', description: '', category: 'daily' as TaskCategory };
 
@@ -26,6 +29,7 @@ export function TasksScreen() {
   const theme = useThemeColors();
   const store = useTaskStore();
   const [editing, setEditing] = useState<Task | null>(null);
+  const [viewing, setViewing] = useState<Task | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm] = useState(emptyTask);
   const [confirm, setConfirm] = useState<ConfirmDialogConfig | null>(null);
@@ -155,6 +159,7 @@ export function TasksScreen() {
 
   return (
     <View style={[screenStyles.container, { backgroundColor: theme.background }]}> 
+      <WaveBackground />
       <View style={screenStyles.header}>
         <View style={styles.greetingRow}>
           <View style={styles.greetingTextContainer}>
@@ -193,10 +198,23 @@ export function TasksScreen() {
         renderItem={({ item }) => (
           <TaskRow
             task={item}
-            onOpen={() => openEdit(item)}
+            onOpen={() => setViewing(item)}
+            onEdit={() => openEdit(item)}
             onToggle={() => confirmToggleTask(item)}
           />
         )}
+      />
+      <InfoModal
+        visible={!!viewing}
+        title={viewing?.title ?? ''}
+        description={viewing?.description}
+        rows={[
+          { label: 'Category', value: viewing ? formatCategory(viewing.category) : null },
+          { label: 'Created', value: viewing ? formatTaskTimestamp(viewing.createdAt) : null },
+          { label: 'Updated', value: viewing ? formatTaskTimestamp(viewing.updatedAt) : null },
+          { label: 'Done', value: viewing?.lastCompletedAt ? formatTaskTimestamp(viewing.lastCompletedAt) : null },
+        ]}
+        onClose={() => setViewing(null)}
       />
       <ItemModal
         visible={modalVisible}
@@ -223,7 +241,7 @@ export function TasksScreen() {
   );
 }
 
-function TaskRow({ task, onOpen, onToggle }: { task: Task; onOpen: () => void; onToggle: () => void }) {
+function TaskRow({ task, onOpen, onEdit, onToggle }: { task: Task; onOpen: () => void; onEdit: () => void; onToggle: () => void }) {
   const theme = useThemeColors();
   const { resolvedTheme } = useSettingsStore();
   const isDark = resolvedTheme === 'dark';
@@ -231,25 +249,24 @@ function TaskRow({ task, onOpen, onToggle }: { task: Task; onOpen: () => void; o
   return (
     <View style={[
       styles.taskCard, 
-      { backgroundColor: theme.surface, borderColor: task.isCompleted ? theme.border : theme.primary + '44' },
-      isDark ? appTheme.shadows.dark : appTheme.shadows.light,
+      { backgroundColor: theme.surface + 'DD', borderColor: task.isCompleted ? theme.border : theme.primary + '66' },
+      isDark ? { ...appTheme.shadows.dark, shadowOpacity: 0.3, shadowRadius: 16 } : { ...appTheme.shadows.light, shadowOpacity: 0.1, shadowRadius: 16 },
       task.isCompleted && { opacity: 0.6 }
-    ]}> 
+    ]}>
       <Pressable
         accessibilityRole="checkbox"
         accessibilityState={{ checked: task.isCompleted }}
         hitSlop={10}
         onPress={onToggle}
         style={({ pressed }) => [
-          styles.checkbox,
-          {
-            borderColor: task.isCompleted ? theme.success : theme.secondaryText,
-            backgroundColor: task.isCompleted ? theme.success : 'transparent',
-            opacity: pressed ? 0.75 : 1,
-          },
+          { opacity: pressed ? 0.75 : 1, justifyContent: 'center', alignItems: 'center' },
         ]}
       >
-        {task.isCompleted ? <AppIcon name="checkmark" size={16} color="#ffffff" /> : null}
+        <AppIcon 
+          name={task.isCompleted ? "checkbox" : "square"} 
+          size={28} 
+          color={task.isCompleted ? theme.success : theme.secondaryText} 
+        />
       </Pressable>
       <Pressable onPress={onOpen} style={({ pressed }) => [styles.taskBody, { opacity: pressed ? 0.75 : 1 }]}> 
         <Text numberOfLines={1} style={[styles.taskTitle, { color: task.isCompleted ? theme.secondaryText : theme.text, textDecorationLine: task.isCompleted ? 'line-through' : 'none' }]}> 
@@ -274,8 +291,8 @@ function TaskRow({ task, onOpen, onToggle }: { task: Task; onOpen: () => void; o
         </View>
       </Pressable>
       <View style={styles.actionsContainer}>
-         <Pressable onPress={onOpen} hitSlop={10} style={styles.iconBtn}>
-           <AppIcon name="pencil" size={20} color={theme.secondaryText} />
+         <Pressable accessibilityRole="button" accessibilityLabel="Edit task" onPress={onEdit} hitSlop={10} style={styles.iconBtn}>
+           <AppIcon name="pencil" size={20} color={theme.primary} />
          </Pressable>
       </View>
     </View>
@@ -289,107 +306,3 @@ function formatTaskTimestamp(value: string): string {
     return value;
   }
 }
-
-const styles = StyleSheet.create({
-  greetingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  greetingTextContainer: {
-    flex: 1,
-    paddingRight: 8,
-  },
-  greetingText: {
-    fontFamily: appTheme.typography.bodyLarge.fontFamily,
-    fontSize: appTheme.typography.bodyLarge.fontSize,
-    lineHeight: appTheme.typography.bodyLarge.lineHeight,
-  },
-  dateText: {
-    fontFamily: appTheme.typography.heading.fontFamily,
-    fontSize: 26,
-    lineHeight: 32,
-    marginTop: 2,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  checkbox: {
-    alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 2,
-    height: 28,
-    justifyContent: 'center',
-    width: 28,
-  },
-  filtersRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  flex1: {
-    flex: 1,
-  },
-  flex2: {
-    flex: 2,
-  },
-  smallActionBtn: {
-    minHeight: 36,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  taskBody: {
-    flex: 1,
-    gap: 4,
-  },
-  taskCard: {
-    alignItems: 'center',
-    borderRadius: appTheme.radius.card,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  taskDescription: {
-    fontFamily: appTheme.typography.body.fontFamily,
-    fontSize: appTheme.typography.body.fontSize,
-    lineHeight: appTheme.typography.body.lineHeight,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  dateMetaGroup: {
-    gap: 2,
-    marginTop: 4,
-  },
-  dateMeta: {
-    fontFamily: appTheme.typography.caption.fontFamily,
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  taskMeta: {
-    fontFamily: appTheme.typography.caption.fontFamily,
-    fontSize: appTheme.typography.caption.fontSize,
-    lineHeight: appTheme.typography.caption.lineHeight,
-    textTransform: 'uppercase',
-  },
-  taskTitle: {
-    fontFamily: appTheme.typography.title.fontFamily,
-    fontSize: appTheme.typography.title.fontSize,
-    lineHeight: appTheme.typography.title.lineHeight,
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  iconBtn: {
-    padding: 4,
-  },
-});

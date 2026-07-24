@@ -1,9 +1,10 @@
 import React, { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { AppIcon } from './AppIcon';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { theme as appTheme } from '../constants/theme';
 import { useSettingsStore } from '../store/settingsStore';
+import { styles } from './ListCard.styles';
 
 export function ListCard({
   title,
@@ -11,6 +12,7 @@ export function ListCard({
   meta,
   iconName,
   onPress,
+  onEdit,
   right,
   completed = false,
 }: {
@@ -19,6 +21,7 @@ export function ListCard({
   meta?: string;
   iconName?: string;
   onPress?: () => void;
+  onEdit?: () => void;
   right?: ReactNode;
   completed?: boolean;
 }) {
@@ -28,11 +31,11 @@ export function ListCard({
 
   return (
     <View style={[
-      styles.card, 
-      { backgroundColor: theme.surface, borderColor: completed ? theme.border : theme.primary + '33' },
-      isDark ? appTheme.shadows.dark : appTheme.shadows.light,
+      styles.card,
+      { backgroundColor: theme.surface + 'DD', borderColor: completed ? theme.border : theme.primary + '66' },
+      isDark ? { ...appTheme.shadows.dark, shadowOpacity: 0.3, shadowRadius: 16 } : { ...appTheme.shadows.light, shadowOpacity: 0.1, shadowRadius: 16 },
       completed && { opacity: 0.6 }
-    ]}> 
+    ]}>
       <Pressable
         disabled={!onPress}
         onPress={onPress}
@@ -58,61 +61,18 @@ export function ListCard({
         </View>
       </Pressable>
       {!!right && <View style={styles.right}>{right}</View>}
+      {onEdit ? (
+        <Pressable
+          accessibilityLabel="Edit item"
+          accessibilityRole="button"
+          hitSlop={10}
+          onPress={onEdit}
+          style={({ pressed }) => [styles.editButton, { opacity: pressed ? 0.7 : 1 }]}
+        >
+          <AppIcon name="pencil" size={20} color={theme.primary} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  body: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 16,
-  },
-  bodyPressable: {
-    flex: 1,
-  },
-  card: {
-    alignItems: 'center',
-    borderRadius: appTheme.radius.card,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  iconContainer: {
-    alignItems: 'center',
-    borderRadius: 12,
-    height: 48,
-    justifyContent: 'center',
-    width: 48,
-  },
-  meta: {
-    fontFamily: appTheme.typography.caption.fontFamily,
-    fontSize: appTheme.typography.caption.fontSize,
-    lineHeight: appTheme.typography.caption.lineHeight,
-    marginTop: 2,
-    textTransform: 'uppercase',
-  },
-  right: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  subtitle: {
-    fontFamily: appTheme.typography.body.fontFamily,
-    fontSize: appTheme.typography.body.fontSize,
-    lineHeight: appTheme.typography.body.lineHeight,
-  },
-  textContainer: {
-    flex: 1,
-    gap: 4,
-  },
-  title: {
-    fontFamily: appTheme.typography.title.fontFamily,
-    fontSize: appTheme.typography.title.fontSize,
-    lineHeight: appTheme.typography.title.lineHeight,
-  },
-  completedText: {
-    textDecorationLine: 'line-through',
-  },
-});

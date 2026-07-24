@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { AppIcon } from '../../components/AppIcon';
 import { Button } from '../../components/Button';
 import { FAB } from '../../components/FAB';
@@ -8,6 +8,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import { FormField } from '../../components/FormField';
 import { ItemModal } from '../../components/ItemModal';
+import { InfoModal } from '../../components/InfoModal';
 import { SearchBar } from '../../components/SearchBar';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -17,8 +18,10 @@ import { displayDateTime } from '../../utils/date';
 import { format, parseISO } from 'date-fns';
 import { createId } from '../../utils/id';
 import { screenStyles } from '../common/screenStyles';
+import { WaveBackground } from '../../components/WaveBackground';
 import { theme as appTheme } from '../../constants/theme';
 import { useSettingsStore } from '../../store/settingsStore';
+import { styles } from './NotesScreen.styles';
 
 const blankNote = { title: '', content: '', color: 'default' as NoteColor, checklist: [] as NoteChecklistItem[] };
 
@@ -36,6 +39,7 @@ export function NotesScreen() {
   const theme = useThemeColors();
   const store = useNoteStore();
   const [editing, setEditing] = useState<Note | null>(null);
+  const [viewing, setViewing] = useState<Note | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm] = useState(blankNote);
   const [confirm, setConfirm] = useState<ConfirmDialogConfig | null>(null);
@@ -132,10 +136,11 @@ export function NotesScreen() {
 
   return (
     <View style={[screenStyles.container, { backgroundColor: theme.background }]}> 
+      <WaveBackground />
       <View style={screenStyles.header}>
         <Text style={[screenStyles.title, { color: theme.text }]}>Notes</Text>
         <SearchBar value={store.search} onChangeText={store.setSearch} placeholder="Search notes" />
-        <View style={{ marginTop: 8 }}>
+        <View style={styles.sortControlWrap}>
           <SegmentedControl
             value={store.sort}
             options={[{ label: 'Newest', value: 'newest' }, { label: 'Oldest', value: 'oldest' }, { label: 'A-Z', value: 'alphabetical' }]}
@@ -156,10 +161,22 @@ export function NotesScreen() {
         renderItem={({ item }) => (
           <NoteCard 
             note={item}
-            onPress={() => openEdit(item)}
+            onPress={() => setViewing(item)}
+            onEdit={() => openEdit(item)}
             onToggleChecklistItem={(itemId) => toggleChecklistItem(item, itemId)}
           />
         )}
+      />
+      <InfoModal
+        visible={!!viewing}
+        title={viewing?.title ?? ''}
+        description={viewing?.content}
+        rows={[
+          { label: 'Checklist', value: viewing ? formatChecklistSummary(viewing.checklist) : null },
+          { label: 'Created', value: viewing ? formatNoteTimestamp(viewing.createdAt) : null },
+          { label: 'Updated', value: viewing ? formatNoteTimestamp(viewing.updatedAt) : null },
+        ]}
+        onClose={() => setViewing(null)}
       />
       
       <ItemModal
@@ -197,12 +214,12 @@ export function NotesScreen() {
           </Pressable>
         </View>
       ) : null}
-      <FAB onPress={() => setCreateMenuOpen((open) => !open)} icon={createMenuOpen ? 'close' : 'create'} />
+      <FAB onPress={() => setCreateMenuOpen((open) => !open)} icon={createMenuOpen ? 'close' : 'add'} />
     </View>
   );
 }
 
-function NoteCard({ note, onPress, onToggleChecklistItem }: { note: Note; onPress: () => void; onToggleChecklistItem: (itemId: string) => void }) {
+function NoteCard({ note, onPress, onEdit, onToggleChecklistItem }: { note: Note; onPress: () => void; onEdit: () => void; onToggleChecklistItem: (itemId: string) => void }) {
   const theme = useThemeColors();
   const { resolvedTheme } = useSettingsStore();
   const isDark = resolvedTheme === 'dark';
@@ -210,16 +227,15 @@ function NoteCard({ note, onPress, onToggleChecklistItem }: { note: Note; onPres
   const previewItems = note.checklist.filter((item) => item.text.trim().length > 0).slice(0, 4);
 
   return (
-    <Pressable 
-      onPress={onPress}
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.card,
         { backgroundColor: colors.background, borderColor: colors.border },
         isDark ? appTheme.shadows.dark : appTheme.shadows.light,
-        pressed && { opacity: 0.8 }
       ]}
     >
-      <Text numberOfLines={2} style={[styles.cardTitle, { color: theme.text }]}>{note.title}</Text>
+      <Pressable onPress={onPress} style={({ pressed }) => [styles.noteBody, pressed && { opacity: 0.8 }]}>
+      <Text numberOfLines={2} style={[styles.cardTitle, styles.cardTitleWithAction, { color: theme.text }]}>{note.title}</Text>
       {!!note.content && (
         <Text numberOfLines={4} style={[styles.cardContent, { color: theme.secondaryText }]}>{note.content}</Text>
       )}
@@ -243,9 +259,13 @@ function NoteCard({ note, onPress, onToggleChecklistItem }: { note: Note; onPres
           ))}
         </View>
       ) : null}
-      <View style={{ flex: 1 }} />
+      <View style={styles.cardSpacer} />
       <Text style={[styles.cardDate, { color: theme.primary }]}>Updated {formatNoteUpdatedAt(note.updatedAt)}</Text>
-    </Pressable>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Edit note" hitSlop={10} onPress={onEdit} style={styles.noteEditButton}>
+        <AppIcon name="pencil" size={20} color={theme.primary} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -341,6 +361,20 @@ function getNoteCardColors(color: NoteColor, isDark: boolean, fallbackSurface: s
   return { background: isDark ? option.dark : option.light, border: option.border };
 }
 
+function formatChecklistSummary(items: NoteChecklistItem[]): string | null {
+  const visibleItems = items.filter((item) => item.text.trim());
+  if (visibleItems.length === 0) return null;
+  return visibleItems.map((item) => (item.checked ? 'Done' : 'Open') + ': ' + item.text).join('\n');
+}
+
+function formatNoteTimestamp(value: string): string {
+  try {
+    return format(parseISO(value), 'MMM d, yyyy h:mm a');
+  } catch {
+    return value;
+  }
+}
+
 function formatNoteUpdatedAt(value: string): string {
   try {
     return format(parseISO(value), 'MMM d, h:mm a');
@@ -348,122 +382,3 @@ function formatNoteUpdatedAt(value: string): string {
     return displayDateTime(value.slice(0, 10));
   }
 }
-
-const styles = StyleSheet.create({
-  addItemButton: {
-    minHeight: 36,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  card: {
-    flex: 1,
-    borderRadius: appTheme.radius.card,
-    borderWidth: 1,
-    padding: 16,
-    minHeight: 160,
-  },
-  cardContent: {
-    fontFamily: appTheme.typography.body.fontFamily,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  cardDate: {
-    fontFamily: appTheme.typography.caption.fontFamily,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  cardTitle: {
-    fontFamily: appTheme.typography.title.fontFamily,
-    fontSize: 18,
-    lineHeight: 24,
-    marginBottom: 8,
-  },
-  checklistHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  checklistInput: {
-    borderBottomWidth: 1,
-    flex: 1,
-    fontFamily: appTheme.typography.bodyLarge.fontFamily,
-    fontSize: appTheme.typography.bodyLarge.fontSize,
-    minHeight: 40,
-    paddingVertical: 6,
-  },
-  checklistPreview: {
-    gap: 6,
-    marginBottom: 12,
-  },
-  checklistRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-  },
-  checklistRows: {
-    gap: 8,
-  },
-  createMenu: {
-    bottom: 182,
-    gap: 10,
-    position: 'absolute',
-    right: 24,
-    zIndex: 101,
-  },
-  createOption: {
-    alignItems: 'center',
-    borderRadius: appTheme.radius.input,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 8,
-    minHeight: 44,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  createOptionText: {
-    fontFamily: appTheme.typography.bodyLarge.fontFamily,
-    fontSize: appTheme.typography.bodyLarge.fontSize,
-  },
-  colorRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  colorSwatch: {
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 2,
-    height: 32,
-    justifyContent: 'center',
-    width: 32,
-  },
-  emptyChecklistText: {
-    fontFamily: appTheme.typography.body.fontFamily,
-    fontSize: appTheme.typography.body.fontSize,
-  },
-  fieldBlock: {
-    gap: 10,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  previewRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
-  previewText: {
-    flex: 1,
-    fontFamily: appTheme.typography.body.fontFamily,
-    fontSize: appTheme.typography.body.fontSize,
-    lineHeight: appTheme.typography.body.lineHeight,
-  },
-  row: {
-    justifyContent: 'space-between',
-    gap: 16,
-    marginBottom: 16,
-  },
-});

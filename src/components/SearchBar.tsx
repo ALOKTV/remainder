@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import { AppIcon } from './AppIcon';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { styles } from './SearchBar.styles';
 
 export function SearchBar({ value, onChangeText, placeholder }: { value: string; onChangeText: (value: string) => void; placeholder: string }) {
   const theme = useThemeColors();
@@ -19,21 +20,3 @@ export function SearchBar({ value, onChangeText, placeholder }: { value: string;
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1,
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-  },
-  icon: {
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    minHeight: 48,
-  },
-});

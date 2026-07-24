@@ -9,6 +9,19 @@ npm install
 npm run start
 ```
 
+## Build APK
+
+`npm run apk:debug` now builds a bundled APK for manual testing, so it behaves much closer to release. `npm run apk:release` is still the production-style build.
+
+```sh
+npm run apk:debug
+npm run apk:release
+```
+
+## Supabase Setup
+
+Copy `.env.example` to `.env` and replace the Supabase URL and anon key with values from your own project. The placeholder values in this repo will fail with a network/DNS error if you try to authenticate against them.
+
 ## Architecture
 
 - UI screens use Zustand stores.
@@ -28,7 +41,3 @@ alok
 - Light, dark, and system theme options
 - Database information screen
 - Type-safe domain models
-
-
-<!-- cd /mnt/data/MY/remainder
-npm run apk:release -->
