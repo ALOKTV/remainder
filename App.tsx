@@ -1,20 +1,25 @@
+import 'react-native-gesture-handler';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { NavigationContainer, DarkTheme, DefaultTheme, Theme } from '@react-navigation/native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initDatabase } from './src/database/database';
 import { registerNotificationHandlers } from './src/notifications/notificationService';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { AuthGate } from './src/supabase/AuthGate';
+import { WaveBackground } from './src/components/WaveBackground';
 import { CloudSyncScheduler } from './src/supabase/CloudSyncScheduler';
 import { TaskResetScheduler } from './src/tasks/TaskResetScheduler';
 import { useSettingsStore } from './src/store/settingsStore';
-import { colors, accentColors } from './src/constants/colors';
+import { colors } from './src/constants/colors';
+import { resolveAccentColor, resolveBackgroundColor } from './src/utils/color';
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
-import { LinearGradient } from 'expo-linear-gradient';
 import { getCurrentSession } from './src/supabase/auth';
 import { getSupabaseClient } from './src/supabase/client';
+import { styles } from './App.styles';
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -29,6 +34,7 @@ export default function App() {
     Outfit_500Medium,
     Outfit_600SemiBold,
     Outfit_700Bold,
+    ...Ionicons.font,
   });
 
   useEffect(() => {
@@ -82,8 +88,8 @@ export default function App() {
   const theme = useMemo(() => {
     const baseTheme = isDark ? DarkTheme : DefaultTheme;
     const palette = isDark ? colors.dark : colors.light;
-    const primary = accentColors[accentColor as keyof typeof accentColors] || accentColor || colors.primary;
-    const background = backgroundColorOverride || palette.background;
+    const primary = resolveAccentColor(accentColor);
+    const background = resolveBackgroundColor(backgroundColorOverride, palette.background);
     return {
       ...baseTheme,
       colors: {
@@ -122,64 +128,21 @@ export default function App() {
     );
   }
 
-
   if (!authenticated) {
     return <AuthGate onAuthenticated={() => setAuthenticated(true)} />;
   }
 
   return (
-    <SafeAreaProvider>
-      <LinearGradient
-        colors={backgroundColorOverride ? [backgroundColorOverride, backgroundColorOverride] : ((isDark ? colors.gradients.backgroundDark : colors.gradients.backgroundLight) as unknown as [string, string, ...string[]])}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
-      <NavigationContainer theme={theme}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        <CloudSyncScheduler />
-        <TaskResetScheduler />
-        <AppNavigator />
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <WaveBackground />
+        <NavigationContainer theme={{ ...theme, colors: { ...theme.colors, background: 'transparent' } }}>
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+          <CloudSyncScheduler />
+          <TaskResetScheduler />
+          <AppNavigator />
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
-
-const styles = StyleSheet.create({
-  loading: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  errorContainer: {
-    padding: 24,
-  },
-  errorTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  retryButton: {
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    minWidth: 132,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  retryButtonPressed: {
-    opacity: 0.8,
-  },
-  retryButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-});

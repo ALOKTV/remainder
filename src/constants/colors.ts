@@ -1,26 +1,26 @@
 export const accentColors = {
+  blue: '#39A5F5',
+  lightBlue: '#61B2F6',
+  purple: '#8A7DF2',
   green: '#10B981',
-  indigo: '#6366F1',
-  purple: '#8B5CF6',
   orange: '#F97316',
   rose: '#F43F5E',
-  cyan: '#06B6D4',
 };
 
 export type AccentColor = keyof typeof accentColors;
 
 export const colors = {
-  primary: '#10B981', // Emerald Green
-  secondary: '#34D399', // Light Emerald
-  accent: '#059669', // Dark Emerald
+  primary: '#39A5F5', // Bright Blue
+  secondary: '#61B2F6', // Light Blue
+  accent: '#8A7DF2', // Purple
   success: '#10B981',
   warning: '#F59E0B',
-  danger: '#EF4444',
-  muted: '#64748B',
+  danger: '#FF3B30',
+  muted: '#A0A0A0',
   gradients: {
-    primary: ['#10B981', '#34D399'] as const,
-    secondary: ['#34D399', '#059669'] as const,
-    danger: ['#EF4444', '#f43f5e'] as const,
+    primary: ['#39A5F5', '#61B2F6'] as const,
+    secondary: ['#61B2F6', '#8A7DF2'] as const,
+    danger: ['#FF3B30', '#f43f5e'] as const,
     surface: ['#FFFFFF', '#F9FAFB'] as const,
     backgroundLight: ['#FFFFFF', '#F8FAFC'] as const,
     backgroundDark: ['#0F172A', '#1E293B'] as const,

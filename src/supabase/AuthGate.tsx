@@ -1,25 +1,23 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, accentColors } from '../constants/colors';
-import { useSettingsStore } from '../store/settingsStore';
+import { ActivityIndicator, Pressable, Text, TextInput, View, Dimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { signInWithEmail, signUpWithEmail } from './auth';
 import { syncCloudNow } from './autoSync';
+import { styles } from './AuthGate.styles';
+
+const { width } = Dimensions.get('window');
 
 type Props = {
   onAuthenticated: () => void;
 };
 
 export function AuthGate({ onAuthenticated }: Props) {
-  const { resolvedTheme, accentColor, backgroundColorOverride } = useSettingsStore();
-  const isDark = resolvedTheme === 'dark';
-  const palette = isDark ? colors.dark : colors.light;
-  const primary = accentColors[accentColor as keyof typeof accentColors] || accentColor || colors.primary;
-  const background = backgroundColorOverride || palette.background;
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(true);
 
   async function submit() {
     if (loading) return;
@@ -43,14 +41,15 @@ export function AuthGate({ onAuthenticated }: Props) {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: background }]}> 
-      <View style={[styles.panel, { backgroundColor: palette.surface, borderColor: palette.border }]}> 
-        <Text style={[styles.title, { color: palette.text }]}>Remainder</Text>
-        <Text style={[styles.subtitle, { color: palette.secondaryText }]}>Sign in to sync your tasks, reminders, notes, and Today items.</Text>
+    <View style={styles.container}>
+      {/* Decorative Shapes */}
+      <View style={styles.shapeLightBlue} />
+      <View style={styles.shapePurple} />
 
-        <View style={[styles.segment, { backgroundColor: palette.surfaceMuted }]}> 
-          <ModeButton label="Sign In" selected={mode === 'sign-in'} primary={primary} textColor={palette.text} onPress={() => setMode('sign-in')} />
-          <ModeButton label="Create" selected={mode === 'sign-up'} primary={primary} textColor={palette.text} onPress={() => setMode('sign-up')} />
+      <View style={styles.content}>
+        {/* Avatar */}
+        <View style={styles.avatarContainer}>
+          <Ionicons name="person" size={70} color="#ffffff" style={styles.avatarIcon} />
         </View>
 
         <View style={styles.fields}>
@@ -59,113 +58,63 @@ export function AuthGate({ onAuthenticated }: Props) {
             autoCorrect={false}
             keyboardType="email-address"
             onChangeText={setEmail}
-            placeholder="you@example.com"
-            placeholderTextColor={palette.secondaryText}
-            style={[styles.input, { backgroundColor: background, borderColor: palette.border, color: palette.text }]}
+            placeholder={mode === 'sign-in' ? "Username" : "Email"}
+            placeholderTextColor="#C6C0F5"
+            style={styles.input}
             value={email}
           />
           <TextInput
             onChangeText={setPassword}
             placeholder="Password"
-            placeholderTextColor={palette.secondaryText}
+            placeholderTextColor="#C6C0F5"
             secureTextEntry
-            style={[styles.input, { backgroundColor: background, borderColor: palette.border, color: palette.text }]}
+            style={styles.input}
             value={password}
           />
         </View>
 
-        {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
+        {/* Remember Me */}
+        {mode === 'sign-in' && (
+          <View style={styles.rememberRow}>
+            <Pressable onPress={() => setRememberMe(!rememberMe)} style={styles.checkboxContainer}>
+              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                {rememberMe && <Ionicons name="checkmark" size={14} color="#fff" />}
+              </View>
+              <Text style={styles.rememberText}>Remember me</Text>
+            </Pressable>
+          </View>
+        )}
 
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {/* Submit Button */}
         <Pressable
           accessibilityRole="button"
           disabled={loading}
           onPress={() => void submit()}
-          style={({ pressed }) => [styles.submit, { backgroundColor: primary, opacity: loading ? 0.6 : pressed ? 0.85 : 1 }]}
+          style={({ pressed }) => [styles.submit, { opacity: loading ? 0.6 : pressed ? 0.85 : 1 }]}
         >
-          {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitText}>{mode === 'sign-in' ? 'Sign In' : 'Create Account'}</Text>}
+          {loading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.submitText}>{mode === 'sign-in' ? 'Sign In' : 'Sign Up'}</Text>
+          )}
         </Pressable>
+
+        {/* Forgot password & Toggle Mode */}
+        <View style={styles.footerLinks}>
+          {mode === 'sign-in' && (
+            <Pressable onPress={() => {}}>
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={() => setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')} style={styles.modeToggleButton}>
+            <Text style={styles.toggleModeText}>
+              {mode === 'sign-in' ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
 }
-
-function ModeButton({ label, selected, primary, textColor, onPress }: { label: string; selected: boolean; primary: string; textColor: string; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={[styles.modeButton, { backgroundColor: selected ? primary : 'transparent' }]}
-    >
-      <Text style={[styles.modeText, { color: selected ? '#ffffff' : textColor }]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  error: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  fields: {
-    gap: 12,
-  },
-  input: {
-    borderRadius: 8,
-    borderWidth: 1,
-    fontSize: 16,
-    minHeight: 48,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  modeButton: {
-    alignItems: 'center',
-    borderRadius: 8,
-    flex: 1,
-    minHeight: 40,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  modeText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  panel: {
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 16,
-    maxWidth: 420,
-    padding: 24,
-    width: '100%',
-  },
-  segment: {
-    borderRadius: 10,
-    flexDirection: 'row',
-    gap: 4,
-    padding: 4,
-  },
-  submit: {
-    alignItems: 'center',
-    borderRadius: 10,
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  submitText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  subtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: '800',
-  },
-});

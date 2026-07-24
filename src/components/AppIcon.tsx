@@ -1,5 +1,7 @@
 import React from 'react';
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Platform, StyleProp, Text, View, ViewStyle } from 'react-native';
+import { styles } from './AppIcon.styles';
 
 type AppIconProps = {
   name: string;
@@ -15,16 +17,68 @@ type IconShapeProps = {
   filled: boolean;
 };
 
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
 export function AppIcon({ name, size = 24, color, style }: AppIconProps) {
   const normalized = name.replace(/-outline$/, '');
   const filled = !name.endsWith('-outline');
   const stroke = Math.max(2, Math.round(size / 12));
+  const ioniconName = getIoniconName(name);
 
   return (
     <View style={[styles.root, { width: size, height: size }, style]} pointerEvents="none">
-      {renderIcon(normalized, { size, color, stroke, filled })}
+      {Platform.OS === 'web' && ioniconName ? <Ionicons name={ioniconName} size={size} color={color} /> : renderIcon(normalized, { size, color, stroke, filled })}
     </View>
   );
+}
+
+function getIoniconName(name: string): IoniconName | null {
+  const outline = name.endsWith('-outline');
+  const normalized = name.replace(/-outline$/, '');
+
+  switch (normalized) {
+    case 'add':
+      return 'add';
+    case 'book':
+      return outline ? 'book-outline' : 'book';
+    case 'calendar':
+      return outline ? 'calendar-outline' : 'calendar';
+    case 'checkbox':
+      return outline ? 'checkbox-outline' : 'checkbox';
+    case 'checkmark':
+      return 'checkmark';
+    case 'checkmark-circle':
+      return outline ? 'checkmark-circle-outline' : 'checkmark-circle';
+    case 'checkmark-done-circle':
+      return outline ? 'checkmark-done-circle-outline' : 'checkmark-done-circle';
+    case 'chevron-down':
+      return 'chevron-down';
+    case 'chevron-up':
+      return 'chevron-up';
+    case 'close':
+      return 'close';
+    case 'create':
+    case 'pencil':
+      return 'create-outline';
+    case 'document-text':
+      return outline ? 'document-text-outline' : 'document-text';
+    case 'notifications':
+      return outline ? 'notifications-outline' : 'notifications';
+    case 'notifications-off':
+      return outline ? 'notifications-off-outline' : 'notifications-off';
+    case 'planet':
+      return outline ? 'planet-outline' : 'planet';
+    case 'search':
+      return 'search';
+    case 'settings':
+      return outline ? 'settings-outline' : 'settings';
+    case 'square':
+      return outline ? 'square-outline' : 'square';
+    case 'time':
+      return outline ? 'time-outline' : 'time';
+    default:
+      return null;
+  }
 }
 
 function renderIcon(name: string, props: IconShapeProps) {
@@ -53,6 +107,10 @@ function renderIcon(name: string, props: IconShapeProps) {
       return <PencilIcon {...props} />;
     case 'document-text':
       return <DocumentIcon {...props} />;
+    case 'notifications':
+      return <NotificationIcon {...props} disabled={false} />;
+    case 'notifications-off':
+      return <NotificationIcon {...props} disabled />;
     case 'planet':
       return <PlanetIcon {...props} />;
     case 'search':
@@ -178,11 +236,24 @@ function SettingsIcon({ size, color, stroke }: IconShapeProps) {
 }
 
 function PencilIcon({ size, color, stroke }: IconShapeProps) {
+  const bodyWidth = size * 0.54;
+  const bodyHeight = Math.max(stroke * 2.3, size * 0.12);
   return (
     <>
-      <View style={[styles.line, { width: size * 0.62, height: stroke * 2.2, left: size * 0.22, top: size * 0.48, backgroundColor: color, transform: [{ rotate: '-42deg' }] }]} />
-      <View style={[styles.box, { width: size * 0.18, height: size * 0.18, borderLeftWidth: stroke, borderBottomWidth: stroke, borderColor: color, left: size * 0.17, top: size * 0.67, transform: [{ rotate: '-42deg' }] }]} />
-      <View style={[styles.dot, { width: size * 0.12, height: size * 0.12, left: size * 0.68, top: size * 0.2, backgroundColor: color }]} />
+      <View style={[styles.line, { width: bodyWidth, height: bodyHeight, left: size * 0.24, top: size * 0.43, backgroundColor: color, transform: [{ rotate: '-45deg' }] }]} />
+      <View style={[styles.box, { width: size * 0.16, height: size * 0.16, borderLeftWidth: stroke, borderBottomWidth: stroke, borderColor: color, left: size * 0.18, top: size * 0.66, transform: [{ rotate: '-45deg' }] }]} />
+      <View style={[styles.box, { width: size * 0.16, height: bodyHeight, borderRadius: bodyHeight / 2, left: size * 0.68, top: size * 0.24, backgroundColor: color, transform: [{ rotate: '-45deg' }] }]} />
+    </>
+  );
+}
+
+function NotificationIcon({ size, color, stroke, disabled }: IconShapeProps & { disabled: boolean }) {
+  return (
+    <>
+      <View style={[styles.bellDome, { width: size * 0.54, height: size * 0.5, borderTopLeftRadius: size * 0.27, borderTopRightRadius: size * 0.27, borderWidth: stroke, borderBottomWidth: 0, borderColor: color, left: size * 0.23, top: size * 0.2 }]} />
+      <View style={[styles.line, { width: size * 0.7, height: stroke, left: size * 0.15, top: size * 0.68, backgroundColor: color }]} />
+      <View style={[styles.dot, { width: size * 0.16, height: size * 0.16, borderRadius: size * 0.08, left: size * 0.42, top: size * 0.74, backgroundColor: color }]} />
+      {disabled ? <CloseIcon size={size} color={color} stroke={Math.max(2, stroke)} filled={false} /> : null}
     </>
   );
 }
@@ -214,41 +285,3 @@ function PlanetIcon({ size, color, stroke }: IconShapeProps) {
 function FallbackIcon({ size, color }: { size: number; color: string }) {
   return <Text style={[styles.fallback, { color, fontSize: size * 0.75, lineHeight: size }]}>?</Text>;
 }
-
-const styles = StyleSheet.create({
-  root: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  line: {
-    borderRadius: 999,
-    position: 'absolute',
-  },
-  circle: {
-    position: 'absolute',
-  },
-  box: {
-    position: 'absolute',
-  },
-  check: {
-    position: 'absolute',
-    transform: [{ rotate: '45deg' }],
-  },
-  chevron: {
-    position: 'absolute',
-  },
-  dot: {
-    borderRadius: 999,
-    position: 'absolute',
-  },
-  fallback: {
-    textAlign: 'center',
-  },
-  knob: {
-    position: 'absolute',
-  },
-  ring: {
-    position: 'absolute',
-  },
-});

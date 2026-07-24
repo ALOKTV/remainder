@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { AppIcon } from './AppIcon';
 import { format, parseISO } from 'date-fns';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { displayTime12 } from '../utils/date';
-import { theme as appTheme } from '../constants/theme';
+import { styles } from './DateTimePicker.styles';
 
 type Props = {
   label: string;
@@ -81,33 +81,158 @@ export function DateTimePicker({ label, value, mode, onChange }: Props) {
 
 function DateMenu({ day, month, year, onChange }: { day: number; month: number; year: number; onChange: (patch: Partial<{ day: number; month: number; year: number }>) => void }) {
   const theme = useThemeColors();
-  const dayOptions = Array.from({ length: daysInMonth(year, month) }, (_, index) => index + 1);
-  const yearOptions = Array.from({ length: 11 }, (_, index) => new Date().getFullYear() - 2 + index);
+  
+  const currentMonthDate = new Date(year, month - 1, 1);
+  const startDayOfWeek = currentMonthDate.getDay();
+  const numDays = daysInMonth(year, month);
+  
+  const days = [];
+  for (let i = 0; i < startDayOfWeek; i++) {
+    days.push(null);
+  }
+  for (let i = 1; i <= numDays; i++) {
+    days.push(i);
+  }
+
+  function handlePrevMonth() {
+    if (month === 1) {
+      onChange({ month: 12, year: year - 1 });
+    } else {
+      onChange({ month: month - 1 });
+    }
+  }
+
+  function handleNextMonth() {
+    if (month === 12) {
+      onChange({ month: 1, year: year + 1 });
+    } else {
+      onChange({ month: month + 1 });
+    }
+  }
 
   return (
     <View style={styles.menuContent}>
-      <OptionGrid values={monthOptions} selectedValue={month} renderLabel={(item) => item.label} getValue={(item) => item.value} onSelect={(value) => onChange({ month: value })} />
-      <Text style={[styles.menuSectionLabel, { color: theme.secondaryText }]}>Day</Text>
-      <OptionGrid values={dayOptions} selectedValue={day} renderLabel={(item) => String(item)} getValue={(item) => item} onSelect={(value) => onChange({ day: value })} compact />
-      <Text style={[styles.menuSectionLabel, { color: theme.secondaryText }]}>Year</Text>
-      <OptionGrid values={yearOptions} selectedValue={year} renderLabel={(item) => String(item)} getValue={(item) => item} onSelect={(value) => onChange({ year: value })} />
+      <View style={styles.calendarHeader}>
+        <Pressable onPress={handlePrevMonth} style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.5 : 1, backgroundColor: theme.surfaceMuted }]}>
+          <AppIcon name="chevron-up" size={16} color={theme.text} style={styles.chevronLeft} />
+        </Pressable>
+        <Text style={[styles.calendarMonthText, { color: theme.text }]}>
+          {format(currentMonthDate, 'MMMM, yyyy')}
+        </Text>
+        <Pressable onPress={handleNextMonth} style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.5 : 1, backgroundColor: theme.surfaceMuted }]}>
+          <AppIcon name="chevron-up" size={16} color={theme.text} style={styles.chevronRight} />
+        </Pressable>
+      </View>
+      
+      <View style={styles.calendarDaysHeader}>
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+          <View key={d} style={styles.calendarDayHeaderCell}>
+            <Text style={[styles.calendarDayHeaderText, { color: theme.secondaryText }]}>{d}</Text>
+          </View>
+        ))}
+      </View>
+      
+      <View style={styles.calendarGrid}>
+        {days.map((d, index) => {
+          if (d === null) {
+            return <View key={`empty-${index}`} style={styles.calendarCellContainer} />;
+          }
+          const selected = d === day;
+          return (
+            <View key={`day-${d}`} style={styles.calendarCellContainer}>
+              <Pressable
+                onPress={() => onChange({ day: d })}
+                style={({ pressed }) => [
+                  styles.calendarCell,
+                  selected && { backgroundColor: theme.primary },
+                  !selected && pressed && { backgroundColor: theme.surfaceMuted }
+                ]}
+              >
+                <Text style={[styles.calendarCellText, { color: selected ? '#ffffff' : theme.text }]}>{d}</Text>
+              </Pressable>
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 function TimeMenu({ hour12, minute, period, onChange }: { hour12: number; minute: string; period: 'AM' | 'PM'; onChange: (patch: Partial<{ hour12: number; minute: string; period: 'AM' | 'PM' }>) => void }) {
   const theme = useThemeColors();
+  const [mode, setMode] = useState<'hour' | 'minute'>('hour');
+  
+  const currentAngle = mode === 'hour' ? (hour12 % 12) * 30 : Number(minute) * 6;
+  const isDark = theme.surface === '#1E293B'; // basic dark mode check for UI contrast
+
+  function renderClockNumbers() {
+    const items = mode === 'hour' 
+      ? [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] 
+      : [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+      
+    return items.map((val, index) => {
+      const angle = index * 30;
+      const rad = (angle - 90) * (Math.PI / 180);
+      const radius = 72;
+      const x = Math.cos(rad) * radius;
+      const y = Math.sin(rad) * radius;
+      const displayVal = mode === 'minute' ? String(val).padStart(2, '0') : String(val === 0 ? 12 : val);
+      const isSelected = mode === 'hour' ? (hour12 % 12 === val % 12) : (Number(minute) === val);
+      
+      return (
+        <Pressable
+          key={val}
+          onPress={() => {
+            if (mode === 'hour') {
+              onChange({ hour12: val === 0 ? 12 : val });
+              setMode('minute'); // auto advance
+            } else {
+              onChange({ minute: String(val).padStart(2, '0') });
+            }
+          }}
+          style={[styles.clockNumber, { transform: [{ translateX: x }, { translateY: y }] }]}
+        >
+          <Text style={[styles.clockNumberText, { color: isSelected ? '#ffffff' : theme.text }]}>{displayVal}</Text>
+        </Pressable>
+      );
+    });
+  }
+
   return (
-    <View style={styles.menuContent}>
-      <Text style={[styles.menuSectionLabel, { color: theme.secondaryText }]}>Hour</Text>
-      <OptionGrid values={hourOptions} selectedValue={hour12} renderLabel={(item) => String(item)} getValue={(item) => item} onSelect={(value) => onChange({ hour12: value })} compact />
-      <Text style={[styles.menuSectionLabel, { color: theme.secondaryText }]}>Minute</Text>
-      <OptionGrid values={minuteOptions} selectedValue={minute} renderLabel={(item) => item} getValue={(item) => item} onSelect={(value) => onChange({ minute: value })} compact />
-      <View style={styles.periodRow}>
-        {(['AM', 'PM'] as const).map((value) => (
-          <PickerOption key={value} selected={period === value} label={value} onPress={() => onChange({ period: value })} />
-        ))}
+    <View style={[styles.menuContent, styles.timeMenuContent]}>
+      
+      <View style={styles.timeInputColumn}>
+        <View style={styles.timeInputRow}>
+          <Pressable onPress={() => setMode('hour')} style={[styles.timeBox, mode === 'hour' && { backgroundColor: theme.primary + '33', borderColor: theme.primary }]}>
+            <Text style={[styles.timeBoxText, { color: mode === 'hour' ? theme.primary : theme.text }]}>{String(hour12).padStart(2, '0')}</Text>
+          </Pressable>
+          <Text style={[styles.timeSeparatorText, { color: theme.text }]}>:</Text>
+          <Pressable onPress={() => setMode('minute')} style={[styles.timeBox, mode === 'minute' && { backgroundColor: theme.primary + '33', borderColor: theme.primary }]}>
+            <Text style={[styles.timeBoxText, { color: mode === 'minute' ? theme.primary : theme.text }]}>{minute}</Text>
+          </Pressable>
+        </View>
+        <View style={styles.periodToggleRow}>
+          <Pressable onPress={() => onChange({ period: 'AM' })} style={[styles.periodToggleBtn, period === 'AM' && { backgroundColor: theme.surfaceMuted }]}>
+            <Text style={[styles.periodToggleText, { color: period === 'AM' ? theme.primary : theme.text }]}>AM</Text>
+          </Pressable>
+          <View style={[styles.periodSeparator, { backgroundColor: theme.border }]} />
+          <Pressable onPress={() => onChange({ period: 'PM' })} style={[styles.periodToggleBtn, period === 'PM' && { backgroundColor: theme.surfaceMuted }]}>
+            <Text style={[styles.periodToggleText, { color: period === 'PM' ? theme.primary : theme.text }]}>PM</Text>
+          </Pressable>
+        </View>
       </View>
+
+      <View style={styles.clockContainer}>
+        <View style={[styles.clockFace, { backgroundColor: isDark ? '#334155' : '#F1F5F9' }]}>
+          <View style={[styles.clockCenter, { backgroundColor: theme.primary }]} />
+          <View style={[styles.handContainer, { transform: [{ rotate: `${currentAngle}deg` }] }]}>
+            <View style={[styles.handLine, { backgroundColor: theme.primary }]} />
+            <View style={[styles.handKnob, { backgroundColor: theme.primary }]} />
+          </View>
+          {renderClockNumbers()}
+        </View>
+      </View>
+
     </View>
   );
 }
@@ -162,21 +287,3 @@ function displayDate(value: string): string {
 function daysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
-
-const styles = StyleSheet.create({
-  anchor: { position: 'relative', zIndex: 60 },
-  compactGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  compactOption: { alignItems: 'center', borderRadius: 8, justifyContent: 'center', minHeight: 34, minWidth: 42, paddingHorizontal: 8, paddingVertical: 6 },
-  container: { gap: 8, zIndex: 60 },
-  label: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
-  menu: { borderRadius: appTheme.radius.input, borderWidth: 1, left: 0, maxHeight: 360, overflow: 'hidden', position: 'absolute', right: 0, top: 54, zIndex: 120 },
-  menuContent: { gap: 10, padding: 12 },
-  menuScroll: { flexGrow: 0 },
-  menuSectionLabel: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
-  option: { alignItems: 'center', borderRadius: 8, flex: 1, justifyContent: 'center', minHeight: 36, minWidth: 64, paddingHorizontal: 10, paddingVertical: 8 },
-  optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  optionText: { fontFamily: appTheme.typography.body.fontFamily, fontSize: appTheme.typography.body.fontSize, lineHeight: appTheme.typography.body.lineHeight },
-  periodRow: { flexDirection: 'row', gap: 8 },
-  trigger: { alignItems: 'center', borderRadius: appTheme.radius.input, borderWidth: 1, flexDirection: 'row', gap: 8, justifyContent: 'space-between', minHeight: 48, paddingHorizontal: 14, paddingVertical: 12 },
-  valueText: { flex: 1, fontSize: 16 },
-});

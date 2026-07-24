@@ -1,9 +1,12 @@
 import React from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable } from 'react-native';
 import { AppIcon } from './AppIcon';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { theme as appTheme } from '../constants/theme';
 import { useSettingsStore } from '../store/settingsStore';
+
+import { LinearGradient } from 'expo-linear-gradient';
+import { styles } from './FAB.styles';
 
 export function FAB({ onPress, icon = 'add' }: { onPress: () => void; icon?: string }) {
   const theme = useThemeColors();
@@ -16,25 +19,21 @@ export function FAB({ onPress, icon = 'add' }: { onPress: () => void; icon?: str
       onPress={onPress}
       style={({ pressed }) => [
         styles.container,
-        { backgroundColor: theme.primary, opacity: pressed ? 0.85 : 1 },
-        isDark ? appTheme.shadows.dark : appTheme.shadows.light
+        { opacity: pressed ? 0.85 : 1 },
+        isDark ? { ...appTheme.shadows.dark, shadowOpacity: 0.5, shadowRadius: 16 } : { ...appTheme.shadows.light, shadowOpacity: 0.3, shadowRadius: 16, shadowColor: theme.primary }
       ]}
     >
-      <AppIcon name={icon} size={32} color="#ffffff" />
+      <LinearGradient
+        colors={[theme.secondary, theme.primary]}
+        style={styles.gradientFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+      <AppIcon 
+        name={icon} 
+        size={32} 
+        color="#ffffff" 
+      />
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    borderRadius: appTheme.radius.pill,
-    bottom: 110, // above the floating tab bar
-    height: 64,
-    justifyContent: 'center',
-    position: 'absolute',
-    right: 24,
-    width: 64,
-    zIndex: 100,
-  },
-});

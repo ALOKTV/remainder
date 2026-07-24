@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View, Pressable, Modal } from 'react-native';
+import { ScrollView, Switch, Text, View, Pressable } from 'react-native';
 import { Button } from '../../components/Button';
 import { FormField } from '../../components/FormField';
 import { ConfirmDialog, ConfirmDialogConfig } from '../../components/ConfirmDialog';
@@ -16,10 +16,13 @@ import { DatabaseInfo, ThemeMode } from '../../types/models';
 import { screenStyles } from '../common/screenStyles';
 import { theme as appTheme } from '../../constants/theme';
 import { accentColors, AccentColor } from '../../constants/colors';
+import { resolveAccentColor, resolveBackgroundColor } from '../../utils/color';
+import { ThemeColorPickerModal } from '../../components/ThemeColorPickerModal';
 import { AppIcon } from '../../components/AppIcon';
 import { getCurrentSession, signInWithEmail, signOut, signUpWithEmail } from '../../supabase/auth';
 import { syncCloudNow } from '../../supabase/autoSync';
-import ColorPicker, { Panel1, HueSlider, Preview } from 'reanimated-color-picker';
+import { WaveBackground } from '../../components/WaveBackground';
+import { styles } from './SettingsScreen.styles';
 
 export function SettingsScreen() {
   const theme = useThemeColors();
@@ -35,7 +38,6 @@ export function SettingsScreen() {
   const [dialog, setDialog] = useState<ConfirmDialogConfig | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<'theme' | 'background'>('theme');
-  const [tempColor, setTempColor] = useState('#ffffff');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [signedInEmail, setSignedInEmail] = useState<string | null>(null);
@@ -149,8 +151,30 @@ export function SettingsScreen() {
     showInfo('Settings Saved', `Theme color updated successfully.`);
   }
 
+  function getPickerColor(target: 'theme' | 'background') {
+    if (target === 'theme') return resolveAccentColor(settings.accentColor);
+    return resolveBackgroundColor(settings.backgroundColorOverride, theme.background);
+  }
+
+  function openColorPicker(target: 'theme' | 'background') {
+    setPickerTarget(target);
+    setPickerVisible(true);
+  }
+
+  function handleSaveCustomColor(color: string) {
+    if (pickerTarget === 'theme') {
+      settings.setAccentColor(color);
+      showInfo('Settings Saved', 'Custom theme color applied.');
+    } else {
+      settings.setBackgroundColorOverride(color);
+      showInfo('Settings Saved', 'Custom background color applied.');
+    }
+    setPickerVisible(false);
+  }
+
   return (
     <View style={[screenStyles.container, { backgroundColor: theme.background }]}>
+      <WaveBackground />
       <ScrollView style={screenStyles.container} contentContainerStyle={[screenStyles.content, { paddingBottom: 140 }]}>
         <View style={screenStyles.header}>
           <Text style={[screenStyles.title, { color: theme.text, marginBottom: 8 }]}>Settings</Text>
@@ -199,8 +223,8 @@ export function SettingsScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.secondaryText }]}>Advanced Colors</Text>
           <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, shadow]}>
-            <Button label="Custom Theme Color" variant="secondary" onPress={() => { setPickerTarget('theme'); setPickerVisible(true); }} />
-            <Button label="Custom Background Color" variant="secondary" onPress={() => { setPickerTarget('background'); setPickerVisible(true); }} />
+            <Button label="Custom Theme Color" variant="secondary" onPress={() => openColorPicker('theme')} />
+            <Button label="Custom Background Color" variant="secondary" onPress={() => openColorPicker('background')} />
             {settings.backgroundColorOverride && (
                <Button label="Reset Background" variant="danger" onPress={() => settings.setBackgroundColorOverride(undefined)} />
             )}
@@ -293,33 +317,7 @@ export function SettingsScreen() {
       </ScrollView>
       <ConfirmDialog config={dialog} onCancel={() => setDialog(null)} />
       
-      <Modal visible={pickerVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setPickerVisible(false)}>
-        <View style={[screenStyles.container, { backgroundColor: theme.background, padding: 24 }]}>
-          <Text style={[screenStyles.title, { color: theme.text, marginBottom: 24, marginTop: 40 }]}>Pick {pickerTarget === 'theme' ? 'Theme Color' : 'Background Color'}</Text>
-          <ColorPicker 
-            style={{ width: '100%', gap: 24 }} 
-            value={pickerTarget === 'theme' ? (accentColors[settings.accentColor as keyof typeof accentColors] || settings.accentColor) : (settings.backgroundColorOverride || theme.background)} 
-            onComplete={(colors) => setTempColor(colors.hex)}
-          >
-            <Preview />
-            <Panel1 />
-            <HueSlider />
-          </ColorPicker>
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 40 }}>
-            <Button label="Cancel" variant="secondary" onPress={() => setPickerVisible(false)} style={{ flex: 1 }} />
-            <Button label="Save" onPress={() => {
-              if (pickerTarget === 'theme') {
-                settings.setAccentColor(tempColor);
-                showInfo('Settings Saved', 'Custom theme color applied.');
-              } else {
-                settings.setBackgroundColorOverride(tempColor);
-                showInfo('Settings Saved', 'Custom background color applied.');
-              }
-              setPickerVisible(false);
-            }} style={{ flex: 1 }} />
-          </View>
-        </View>
-      </Modal>
+      <ThemeColorPickerModal visible={pickerVisible} target={pickerTarget} initialColor={getPickerColor(pickerTarget)} onCancel={() => setPickerVisible(false)} onSave={handleSaveCustomColor} />
     </View>
   );
 }
@@ -333,81 +331,3 @@ function SettingRow({ label, value, onValueChange }: { label: string; value: boo
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontFamily: appTheme.typography.caption.fontFamily,
-    fontSize: appTheme.typography.caption.fontSize,
-    lineHeight: appTheme.typography.caption.lineHeight,
-    textTransform: 'uppercase',
-    fontWeight: '700',
-    marginBottom: 8,
-    marginLeft: 16,
-    letterSpacing: 0.5,
-  },
-  card: {
-    borderRadius: appTheme.radius.card,
-    borderWidth: 1,
-    padding: 20,
-    gap: 16,
-  },
-  row: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  rowText: {
-    fontFamily: appTheme.typography.bodyLarge.fontFamily,
-    fontSize: appTheme.typography.bodyLarge.fontSize,
-  },
-  dataRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  dataLabel: {
-    fontFamily: appTheme.typography.bodyLarge.fontFamily,
-    fontSize: appTheme.typography.bodyLarge.fontSize,
-  },
-  dataValue: {
-    fontFamily: appTheme.typography.bodyLarge.fontFamily,
-    fontSize: appTheme.typography.bodyLarge.fontSize,
-  },
-  buttonGroup: {
-    gap: 12,
-    marginTop: 8,
-  },
-  authButton: {
-    flex: 1,
-  },
-  authButtonRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  authEmailValue: {
-    flex: 1,
-    marginLeft: 12,
-    textAlign: 'right',
-  },
-  infoText: {
-    fontFamily: appTheme.typography.body.fontFamily,
-    fontSize: appTheme.typography.body.fontSize,
-    lineHeight: appTheme.typography.body.lineHeight,
-  },
-  colorRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  colorCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

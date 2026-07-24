@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { ConfirmDialog, ConfirmDialogConfig } from '../../components/ConfirmDialog';
 import { DateTimePicker } from '../../components/DateTimePicker';
@@ -8,16 +8,19 @@ import { ErrorBanner } from '../../components/ErrorBanner';
 import { FAB } from '../../components/FAB';
 import { FormField } from '../../components/FormField';
 import { ItemModal } from '../../components/ItemModal';
+import { InfoModal } from '../../components/InfoModal';
 import { ListCard } from '../../components/ListCard';
 import { SearchBar } from '../../components/SearchBar';
 import { SegmentedControl } from '../../components/SegmentedControl';
-import { theme as appTheme } from '../../constants/theme';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { TodayItemInput } from '../../repositories/TodayItemRepository';
 import { useTodayItemStore } from '../../store/todayItemStore';
 import { TodayItem, WeekdayIndex } from '../../types/models';
 import { dateKey, displayDate, formatTodayItemSchedule } from '../../utils/date';
+import { format, parseISO } from 'date-fns';
 import { screenStyles } from '../common/screenStyles';
+import { WaveBackground } from '../../components/WaveBackground';
+import { styles } from './TodayScreen.styles';
 
 const weekdayOptions: Array<{ label: string; value: WeekdayIndex }> = [
   { label: 'Sun', value: 0 },
@@ -40,6 +43,7 @@ export function TodayScreen() {
   const theme = useThemeColors();
   const store = useTodayItemStore();
   const [editing, setEditing] = useState<TodayItem | null>(null);
+  const [viewing, setViewing] = useState<TodayItem | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm] = useState<TodayItemInput>(blankItem);
   const [confirm, setConfirm] = useState<ConfirmDialogConfig | null>(null);
@@ -122,6 +126,7 @@ export function TodayScreen() {
 
   return (
     <View style={[screenStyles.container, { backgroundColor: theme.background }]}> 
+      <WaveBackground />
       <View style={screenStyles.header}>
         <Text style={[screenStyles.title, { color: theme.text }]}>Today</Text>
         <View style={[styles.summaryBand, { backgroundColor: theme.primary }]}> 
@@ -152,9 +157,21 @@ export function TodayScreen() {
             subtitle={item.description}
             meta={formatTodayItemSchedule(item)}
             iconName="calendar-outline"
-            onPress={() => openEdit(item)}
+            onPress={() => setViewing(item)}
+            onEdit={() => openEdit(item)}
           />
         )}
+      />
+      <InfoModal
+        visible={!!viewing}
+        title={viewing?.title ?? ''}
+        description={viewing?.description}
+        rows={[
+          { label: 'Schedule', value: viewing ? formatTodayItemSchedule(viewing) : null },
+          { label: 'Created', value: viewing ? formatItemTimestamp(viewing.createdAt) : null },
+          { label: 'Updated', value: viewing ? formatItemTimestamp(viewing.updatedAt) : null },
+        ]}
+        onClose={() => setViewing(null)}
       />
 
       <ItemModal
@@ -209,62 +226,10 @@ export function TodayScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  formGroup: {
-    gap: 10,
-  },
-  formLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  summaryBand: {
-    alignItems: 'center',
-    borderRadius: appTheme.radius.card,
-    flexDirection: 'row',
-    gap: 16,
-    minHeight: 92,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  summaryCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  summaryCount: {
-    color: '#ffffff',
-    fontFamily: appTheme.typography.heading.fontFamily,
-    fontSize: 36,
-    minWidth: 48,
-    textAlign: 'center',
-  },
-  summaryDate: {
-    color: 'rgba(255,255,255,0.82)',
-    fontFamily: appTheme.typography.body.fontFamily,
-    fontSize: appTheme.typography.body.fontSize,
-  },
-  summaryTitle: {
-    color: '#ffffff',
-    fontFamily: appTheme.typography.title.fontFamily,
-    fontSize: appTheme.typography.title.fontSize,
-  },
-  weekdayChip: {
-    alignItems: 'center',
-    borderRadius: 8,
-    justifyContent: 'center',
-    minHeight: 38,
-    minWidth: 44,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  weekdayRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  weekdayText: {
-    fontFamily: appTheme.typography.body.fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-});
+function formatItemTimestamp(value: string): string {
+  try {
+    return format(parseISO(value), 'MMM d, yyyy h:mm a');
+  } catch {
+    return value;
+  }
+}
