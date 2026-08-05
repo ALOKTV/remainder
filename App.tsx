@@ -9,7 +9,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initDatabase } from './src/database/database';
 import { registerNotificationHandlers } from './src/notifications/notificationService';
 import { AppNavigator } from './src/navigation/AppNavigator';
-import { AuthGate } from './src/supabase/AuthGate';
+import { AuthGate, AuthGateMode } from './src/supabase/AuthGate';
 import { WaveBackground } from './src/components/WaveBackground';
 import { CloudSyncScheduler } from './src/supabase/CloudSyncScheduler';
 import { TaskResetScheduler } from './src/tasks/TaskResetScheduler';
@@ -26,6 +26,7 @@ export default function App() {
   const [bootError, setBootError] = useState<Error | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [authenticated, setAuthenticated] = useState(false);
+  const [authGateMode, setAuthGateMode] = useState<AuthGateMode>("sign-in");
   const [authChecked, setAuthChecked] = useState(false);
   const { hydrate, resolvedTheme, accentColor, backgroundColorOverride } = useSettingsStore();
 
@@ -71,7 +72,14 @@ export default function App() {
     if (!ready) return;
     let subscription: { unsubscribe: () => void } | null = null;
     try {
-      const { data } = getSupabaseClient().auth.onAuthStateChange((_event, session) => {
+      const { data } = getSupabaseClient().auth.onAuthStateChange((event, session) => {
+        if (event === "PASSWORD_RECOVERY") {
+          setAuthGateMode("update-password");
+          setAuthenticated(false);
+          return;
+        }
+
+        setAuthGateMode("sign-in");
         setAuthenticated(!!session);
       });
       subscription = data.subscription;
@@ -129,7 +137,15 @@ export default function App() {
   }
 
   if (!authenticated) {
-    return <AuthGate onAuthenticated={() => setAuthenticated(true)} />;
+    return (
+      <AuthGate
+        initialMode={authGateMode}
+        onAuthenticated={() => {
+          setAuthGateMode("sign-in");
+          setAuthenticated(true);
+        }}
+      />
+    );
   }
 
   return (
