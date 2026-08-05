@@ -1,22 +1,30 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { resendSignupOtp, sendPasswordResetEmail, signInWithEmail, signUpWithEmail, verifySignupOtp } from "./auth";
+import {
+  resendSignupOtp,
+  sendPasswordResetEmail,
+  signInWithEmail,
+  signUpWithEmail,
+  updatePassword,
+  verifySignupOtp,
+} from "./auth";
 import { syncCloudNow } from "./autoSync";
 import { styles } from "./AuthGate.styles";
 
+export type AuthGateMode = "sign-in" | "sign-up" | "verify-email" | "forgot-password" | "update-password";
+
 type Props = {
+  initialMode?: AuthGateMode;
   onAuthenticated: () => void;
 };
-
-type AuthMode = "sign-in" | "sign-up" | "verify-email" | "forgot-password";
 
 function isValidEmail(value: string) {
   return /^\S+@\S+\.\S+$/.test(value.trim());
 }
 
-export function AuthGate({ onAuthenticated }: Props) {
-  const [mode, setMode] = useState<AuthMode>("sign-in");
+export function AuthGate({ initialMode = "sign-in", onAuthenticated }: Props) {
+  const [mode, setMode] = useState<AuthGateMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,7 +34,16 @@ export function AuthGate({ onAuthenticated }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(true);
 
-  function changeMode(nextMode: AuthMode) {
+  useEffect(() => {
+    setMode(initialMode);
+    setError(null);
+    setMessage(initialMode === "update-password" ? "Enter a new password for your account." : null);
+    setPassword("");
+    setConfirmPassword("");
+    setOtpCode("");
+  }, [initialMode]);
+
+  function changeMode(nextMode: AuthGateMode) {
     setMode(nextMode);
     setError(null);
     setMessage(null);
@@ -44,17 +61,20 @@ export function AuthGate({ onAuthenticated }: Props) {
     if (loading) return;
 
     const normalizedEmail = email.trim();
-    if (!isValidEmail(normalizedEmail)) {
+    const needsEmail = mode !== "update-password";
+    const needsPassword = mode === "sign-in" || mode === "sign-up" || mode === "update-password";
+
+    if (needsEmail && !isValidEmail(normalizedEmail)) {
       setError("Enter a valid email address.");
       return;
     }
 
-    if ((mode === "sign-in" || mode === "sign-up") && password.length < 6) {
+    if (needsPassword && password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
     }
 
-    if (mode === "sign-up" && password !== confirmPassword) {
+    if ((mode === "sign-up" || mode === "update-password") && password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
@@ -89,6 +109,12 @@ export function AuthGate({ onAuthenticated }: Props) {
 
       if (mode === "verify-email") {
         await verifySignupOtp(normalizedEmail, otpCode);
+        await finishAuthenticated();
+        return;
+      }
+
+      if (mode === "update-password") {
+        await updatePassword(password);
         await finishAuthenticated();
         return;
       }
@@ -131,7 +157,9 @@ export function AuthGate({ onAuthenticated }: Props) {
         ? "Create Account"
         : mode === "verify-email"
           ? "Verify Email"
-          : "Reset Password";
+          : mode === "update-password"
+            ? "Set New Password"
+            : "Reset Password";
 
   const submitLabel =
     mode === "sign-in"
@@ -140,7 +168,9 @@ export function AuthGate({ onAuthenticated }: Props) {
         ? "Create Account"
         : mode === "verify-email"
           ? "Verify Email"
-          : "Send Reset Email";
+          : mode === "update-password"
+            ? "Update Password"
+            : "Send Reset Email";
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.container}>
@@ -156,24 +186,26 @@ export function AuthGate({ onAuthenticated }: Props) {
           <Text style={styles.title}>{title}</Text>
 
           <View style={styles.fields}>
-            <TextInput
-              autoCapitalize="none"
-              autoComplete="email"
-              autoCorrect={false}
-              keyboardType="email-address"
-              onChangeText={setEmail}
-              placeholder="Email"
-              placeholderTextColor="#C6C0F5"
-              style={styles.input}
-              textContentType="emailAddress"
-              value={email}
-            />
+            {mode !== "update-password" && (
+              <TextInput
+                autoCapitalize="none"
+                autoComplete="email"
+                autoCorrect={false}
+                keyboardType="email-address"
+                onChangeText={setEmail}
+                placeholder="Email"
+                placeholderTextColor="#C6C0F5"
+                style={styles.input}
+                textContentType="emailAddress"
+                value={email}
+              />
+            )}
 
-            {(mode === "sign-in" || mode === "sign-up") && (
+            {(mode === "sign-in" || mode === "sign-up" || mode === "update-password") && (
               <TextInput
                 autoComplete="password"
                 onChangeText={setPassword}
-                placeholder="Password"
+                placeholder={mode === "update-password" ? "New password" : "Password"}
                 placeholderTextColor="#C6C0F5"
                 secureTextEntry
                 style={styles.input}
@@ -182,7 +214,7 @@ export function AuthGate({ onAuthenticated }: Props) {
               />
             )}
 
-            {mode === "sign-up" && (
+            {(mode === "sign-up" || mode === "update-password") && (
               <TextInput
                 autoComplete="password"
                 onChangeText={setConfirmPassword}
@@ -245,14 +277,16 @@ export function AuthGate({ onAuthenticated }: Props) {
               </Pressable>
             )}
 
-            <Pressable
-              onPress={() => changeMode(mode === "sign-in" ? "sign-up" : "sign-in")}
-              style={styles.modeToggleButton}
-            >
-              <Text style={styles.toggleModeText}>
-                {mode === "sign-in" ? "Don\x27t have an account? Create one" : "Back to sign in"}
-              </Text>
-            </Pressable>
+            {mode !== "update-password" && (
+              <Pressable
+                onPress={() => changeMode(mode === "sign-in" ? "sign-up" : "sign-in")}
+                style={styles.modeToggleButton}
+              >
+                <Text style={styles.toggleModeText}>
+                  {mode === "sign-in" ? "Don\x27t have an account? Create one" : "Back to sign in"}
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
       </ScrollView>

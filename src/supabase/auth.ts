@@ -82,8 +82,25 @@ export async function resendSignupOtp(email: string): Promise<void> {
 export async function sendPasswordResetEmail(email: string): Promise<void> {
   const supabase = getSupabaseClient();
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    const redirectTo = process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL;
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email.trim(),
+      redirectTo ? { redirectTo } : undefined,
+    );
     if (error) throw error;
+  } catch (error) {
+    throw normalizeSupabaseError(error);
+  }
+}
+
+export async function updatePassword(password: string): Promise<AuthResult> {
+  const supabase = getSupabaseClient();
+  try {
+    const { data, error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    return { user: data.user, session: sessionData.session };
   } catch (error) {
     throw normalizeSupabaseError(error);
   }
