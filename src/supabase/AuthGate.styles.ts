@@ -26,13 +26,18 @@ export const styles = StyleSheet.create({
     borderRadius: 160,
     backgroundColor: '#8A7DF2',
   },
-  content: {
-    flex: 1,
+  scrollContent: {
     width: '100%',
-    maxWidth: 320,
-    marginTop: 220,
+    minHeight: '100%',
+    alignItems: 'center',
+  },
+  content: {
+    width: '100%',
+    maxWidth: 340,
+    marginTop: 145,
     alignItems: 'center',
     paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   avatarContainer: {
     width: 110,
@@ -41,11 +46,18 @@ export const styles = StyleSheet.create({
     backgroundColor: '#61B2F6',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 18,
     overflow: 'hidden',
   },
   avatarIcon: {
     marginTop: 20,
+  },
+  title: {
+    color: '#2F2F3A',
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 24,
+    textAlign: 'center',
   },
   fields: {
     width: '100%',
@@ -90,6 +102,12 @@ export const styles = StyleSheet.create({
     color: '#39A5F5',
     fontSize: 14,
   },
+  message: {
+    color: '#2F8F55',
+    fontSize: 13,
+    marginTop: 10,
+    textAlign: 'center',
+  },
   error: {
     color: '#FF3B30',
     fontSize: 13,
@@ -97,7 +115,7 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
   submit: {
-    width: 180,
+    width: 210,
     height: 48,
     backgroundColor: '#39A5F5',
     borderRadius: 24,
@@ -113,6 +131,10 @@ export const styles = StyleSheet.create({
   footerLinks: {
     marginTop: 24,
     alignItems: 'center',
+  },
+  footerButton: {
+    minHeight: 28,
+    justifyContent: 'center',
   },
   forgotText: {
     color: '#A0A0A0',

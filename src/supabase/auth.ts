@@ -49,6 +49,46 @@ export async function signInWithEmail(email: string, password: string): Promise<
   }
 }
 
+export async function verifySignupOtp(email: string, token: string): Promise<AuthResult> {
+  const supabase = getSupabaseClient();
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: token.trim(),
+      type: "signup",
+    });
+
+    if (error) throw error;
+    return { user: data.user, session: data.session };
+  } catch (error) {
+    throw normalizeSupabaseError(error);
+  }
+}
+
+export async function resendSignupOtp(email: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  try {
+    const { error } = await supabase.auth.resend({
+      email: email.trim(),
+      type: "signup",
+    });
+
+    if (error) throw error;
+  } catch (error) {
+    throw normalizeSupabaseError(error);
+  }
+}
+
+export async function sendPasswordResetEmail(email: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    if (error) throw error;
+  } catch (error) {
+    throw normalizeSupabaseError(error);
+  }
+}
+
 export async function signOut(): Promise<void> {
   const supabase = getSupabaseClient();
   try {
