@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
+  ensureUserProfile,
   resendSignupOtp,
   sendPasswordResetEmail,
   signInWithEmail,
@@ -10,6 +11,8 @@ import {
   verifySignupOtp,
 } from "./auth";
 import { syncCloudNow } from "./autoSync";
+import { userRepository } from "../repositories/UserRepository";
+import { useAuthStore } from "../store/authStore";
 import { styles } from "./AuthGate.styles";
 
 export type AuthGateMode = "sign-in" | "sign-up" | "verify-email" | "forgot-password" | "update-password";
@@ -30,6 +33,8 @@ export function AuthGate({ initialMode = "sign-in", onAuthenticated }: Props) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
+  const [guestConfirmOpen, setGuestConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(true);
@@ -53,8 +58,29 @@ export function AuthGate({ initialMode = "sign-in", onAuthenticated }: Props) {
   }
 
   async function finishAuthenticated() {
+    await ensureUserProfile();
     await syncCloudNow({ pull: true, push: true });
     onAuthenticated();
+  }
+
+  async function finishGuest() {
+    if (guestLoading) return;
+    setGuestLoading(true);
+    setError(null);
+    try {
+      const guest = await userRepository.createGuest();
+      await userRepository.setActiveGuest(guest.id);
+      useAuthStore.getState().setGuest(guest);
+      onAuthenticated();
+    } catch (guestError) {
+      setError(guestError instanceof Error ? guestError.message : "Unable to continue as guest.");
+    } finally {
+      setGuestLoading(false);
+    }
+  }
+
+  function beginGuest() {
+    setGuestConfirmOpen(true);
   }
 
   async function submit() {
@@ -264,6 +290,29 @@ export function AuthGate({ initialMode = "sign-in", onAuthenticated }: Props) {
             {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitText}>{submitLabel}</Text>}
           </Pressable>
 
+          {mode === "sign-in" && (
+            <>
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                disabled={guestLoading || loading}
+                onPress={beginGuest}
+                style={({ pressed }) => [styles.guestButton, { opacity: guestLoading ? 0.6 : pressed ? 0.85 : 1 }]}
+              >
+                {guestLoading ? (
+                  <ActivityIndicator color="#39A5F5" />
+                ) : (
+                  <Text style={styles.guestButtonText}>Continue as Guest</Text>
+                )}
+              </Pressable>
+              <Text style={styles.guestHint}>Use the app without an account. Data stays on this device.</Text>
+            </>
+          )}
+
           <View style={styles.footerLinks}>
             {mode === "sign-in" && (
               <Pressable onPress={() => changeMode("forgot-password")} style={styles.footerButton}>
@@ -290,6 +339,42 @@ export function AuthGate({ initialMode = "sign-in", onAuthenticated }: Props) {
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={guestConfirmOpen} transparent animationType="fade" onRequestClose={() => setGuestConfirmOpen(false)}>
+        <View style={styles.modalWrap}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setGuestConfirmOpen(false)} />
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconContainer}>
+              <Ionicons name="person-circle-outline" size={40} color="#39A5F5" />
+            </View>
+            <Text style={styles.modalTitle}>Continue as Guest?</Text>
+            <Text style={styles.modalMessage}>
+              {"You'll get a unique name like Guest_00 and can use the app without an account.\n\nYour guest profile and all data are saved only on this device. If you clear the app data or uninstall and reinstall the app, everything will be lost.\n\nSign in or create an account to back up your data to the cloud."}
+            </Text>
+            <View style={styles.modalButtons}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setGuestConfirmOpen(false)}
+                style={({ pressed }) => [styles.modalButton, styles.modalButtonCancel, { opacity: pressed ? 0.85 : 1 }]}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={guestLoading}
+                onPress={() => void finishGuest()}
+                style={({ pressed }) => [styles.modalButton, styles.modalButtonConfirm, { opacity: guestLoading ? 0.6 : pressed ? 0.85 : 1 }]}
+              >
+                {guestLoading ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Text style={styles.modalButtonConfirmText}>Continue as Guest</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

@@ -1,18 +1,19 @@
-import { DatabaseInfo, Note, Reminder, Task, TodayItem, WeekdayIndex } from '../types/models';
+import { DatabaseInfo, GuestUser, Note, Reminder, Task, TodayItem, WeekdayIndex } from '../types/models';
 
 type WebData = {
   tasks: Task[];
   todayItems: TodayItem[];
   reminders: Reminder[];
   notes: Note[];
+  users: GuestUser[];
   migrationVersion: number;
 };
 
 type WebDatabase = {
   execAsync: (sql: string) => Promise<void>;
   runAsync: (sql: string, ...params: unknown[]) => Promise<void>;
-  getAllAsync: <T>(sql: string) => Promise<T[]>;
-  getFirstAsync: <T>(sql: string) => Promise<T | null>;
+  getAllAsync: <T>(sql: string, ...params: unknown[]) => Promise<T[]>;
+  getFirstAsync: <T>(sql: string, ...params: unknown[]) => Promise<T | null>;
   withTransactionAsync: (callback: () => Promise<void>) => Promise<void>;
 };
 
@@ -32,6 +33,10 @@ export async function initDatabase(): Promise<void> {
   const migrated = readData();
   if (migrated.migrationVersion < 3) {
     writeData({ ...migrated, todayItems: normalizeTodayItems(migrated.todayItems), migrationVersion: 3 });
+  }
+  const todays = readData();
+  if (todays.migrationVersion < 4) {
+    writeData({ ...todays, users: Array.isArray(todays.users) ? todays.users : [], migrationVersion: 4 });
   }
 }
 
@@ -54,8 +59,8 @@ function createWebDatabase(): WebDatabase {
   return {
     execAsync: async () => undefined,
     runAsync: async (sql, ...params) => runStatement(sql, params),
-    getAllAsync: async <T>(sql: string) => selectAll<T>(sql),
-    getFirstAsync: async <T>(sql: string) => selectFirst<T>(sql),
+    getAllAsync: async <T>(sql: string, ...params: unknown[]) => selectAll<T>(sql, params),
+    getFirstAsync: async <T>(sql: string, ...params: unknown[]) => selectFirst<T>(sql, params),
     withTransactionAsync: async (callback) => callback(),
   };
 }
@@ -240,22 +245,39 @@ function runStatement(sql: string, params: unknown[]): void {
     data.notes = data.notes.filter((note) => note.id !== params[0]);
     writeData(data);
   }
+
+  if (normalized.startsWith('insert into users')) {
+    data.users.unshift({
+      id: stringParam(params[0]),
+      name: stringParam(params[1]),
+      isGuest: boolParam(params[2]),
+      createdAt: stringParam(params[3]),
+      updatedAt: stringParam(params[4]),
+    });
+    writeData(data);
+  }
 }
 
-function selectAll<T>(sql: string): T[] {
+function selectAll<T>(sql: string, params?: unknown[]): T[] {
   const normalized = normalizeSql(sql);
   const data = readData();
   if (normalized.includes('from tasks')) return sortRows(data.tasks, 'createdAt', 'desc') as T[];
   if (normalized.includes('from todayitems')) return sortRows(data.todayItems, 'createdAt', 'desc') as T[];
   if (normalized.includes('from reminders')) return [...data.reminders].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)) as T[];
   if (normalized.includes('from notes')) return sortRows(data.notes, 'updatedAt', 'desc') as T[];
+  if (normalized.includes('from users')) return [...data.users].sort((a, b) => a.name.localeCompare(b.name)) as T[];
   return [];
 }
 
-function selectFirst<T>(sql: string): T | null {
+function selectFirst<T>(sql: string, params?: unknown[]): T | null {
   const normalized = normalizeSql(sql);
   const data = readData();
   if (normalized.includes('from schema_migrations')) return { version: data.migrationVersion } as T;
+  if (normalized.includes('from users')) {
+    const id = params?.[0];
+    const user = id ? data.users.find((item) => item.id === id) : data.users[0];
+    return (user ?? null) as T;
+  }
   if (normalized.includes('count(*)') && normalized.includes('from tasks')) return { count: data.tasks.length } as T;
   if (normalized.includes('count(*)') && normalized.includes('from todayitems')) return { count: data.todayItems.length } as T;
   if (normalized.includes('count(*)') && normalized.includes('from reminders')) return { count: data.reminders.length } as T;
@@ -282,7 +304,7 @@ function writeData(data: WebData): void {
 }
 
 function emptyData(): WebData {
-  return { tasks: [], todayItems: [], reminders: [], notes: [], migrationVersion: 0 };
+  return { tasks: [], todayItems: [], reminders: [], notes: [], users: [], migrationVersion: 0 };
 }
 
 function normalizeSql(sql: string): string {

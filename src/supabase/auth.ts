@@ -137,3 +137,29 @@ export async function getCurrentUser(): Promise<User | null> {
     throw normalizeSupabaseError(error);
   }
 }
+
+export async function ensureUserProfile(): Promise<void> {
+  const supabase = getSupabaseClient();
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    const user = data.session?.user;
+    if (!user) return;
+
+    const name = user.email ? user.email.split("@")[0] : "User";
+    await supabase
+      .from("users")
+      .upsert(
+        {
+          id: user.id,
+          name,
+          is_guest: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id", ignoreDuplicates: true },
+      );
+  } catch (error) {
+    console.warn("Unable to save the user profile.", error);
+  }
+}

@@ -61,6 +61,16 @@ const migrations: Array<{ version: number; sql: string }> = [
       "updatedAt TEXT NOT NULL" +
       ");",
   },
+  {
+    version: 4,
+    sql: "CREATE TABLE IF NOT EXISTS users (" +
+      "id TEXT PRIMARY KEY NOT NULL," +
+      "name TEXT NOT NULL," +
+      "isGuest INTEGER NOT NULL DEFAULT 1," +
+      "createdAt TEXT NOT NULL," +
+      "updatedAt TEXT NOT NULL" +
+      ");",
+  },
 ];
 
 export async function getDb(): Promise<SQLite.SQLiteDatabase> {
