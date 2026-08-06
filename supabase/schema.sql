@@ -4,6 +4,23 @@
 
 create extension if not exists pgcrypto;
 
+create table if not exists public.users (
+  id uuid primary key default auth.uid() references auth.users(id) on delete cascade,
+  name text not null,
+  is_guest boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.users enable row level security;
+
+drop policy if exists "users_select_own" on public.users;
+drop policy if exists "users_insert_own" on public.users;
+drop policy if exists "users_update_own" on public.users;
+create policy "users_select_own" on public.users for select using (auth.uid() = id);
+create policy "users_insert_own" on public.users for insert with check (auth.uid() = id);
+create policy "users_update_own" on public.users for update using (auth.uid() = id) with check (auth.uid() = id);
+
 create table if not exists public.tasks (
   id text primary key,
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,

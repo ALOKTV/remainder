@@ -19,8 +19,10 @@ import { accentColors, AccentColor } from '../../constants/colors';
 import { resolveAccentColor, resolveBackgroundColor } from '../../utils/color';
 import { ThemeColorPickerModal } from '../../components/ThemeColorPickerModal';
 import { AppIcon } from '../../components/AppIcon';
-import { getCurrentSession, signInWithEmail, signOut, signUpWithEmail } from '../../supabase/auth';
+import { getCurrentSession, ensureUserProfile, signInWithEmail, signOut, signUpWithEmail } from '../../supabase/auth';
 import { syncCloudNow } from '../../supabase/autoSync';
+import { userRepository } from '../../repositories/UserRepository';
+import { useAuthStore } from '../../store/authStore';
 import { WaveBackground } from '../../components/WaveBackground';
 import { styles } from './SettingsScreen.styles';
 
@@ -41,6 +43,7 @@ export function SettingsScreen() {
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [signedInEmail, setSignedInEmail] = useState<string | null>(null);
+  const guest = useAuthStore((state) => state.guest);
   const [authLoading, setAuthLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState<'push' | 'pull' | null>(null);
 
@@ -90,6 +93,7 @@ export function SettingsScreen() {
         : await signUpWithEmail(authEmail, authPassword);
       setSignedInEmail(result.user?.email ?? authEmail.trim());
       setAuthPassword('');
+      await ensureUserProfile();
       await syncCloudNow({ pull: true, push: true });
       await reloadLocalData();
       showInfo('Cloud Sync', action === 'sign-in' ? 'Signed in successfully. Data synced.' : 'Account created. Data synced if the session is active.');
@@ -104,6 +108,14 @@ export function SettingsScreen() {
     if (authLoading) return;
     setAuthLoading(true);
     try {
+      if (guest) {
+        await userRepository.clearActiveGuest();
+        useAuthStore.getState().setGuest(null);
+        showInfo('Guest Session', 'Signed out of guest session. Your data stays on this device.');
+        setAuthLoading(false);
+        return;
+      }
+
       await signOut();
       setSignedInEmail(null);
       showInfo('Cloud Sync', 'Signed out successfully.');
@@ -273,6 +285,17 @@ export function SettingsScreen() {
                 <View style={styles.buttonGroup}>
                   <Button label="Push Local" loading={syncLoading === 'push'} disabled={!!syncLoading} onPress={() => void handlePushLocal()} />
                   <Button label="Pull Cloud" variant="secondary" loading={syncLoading === 'pull'} disabled={!!syncLoading} onPress={() => void handlePullCloud()} />
+                  <Button label="Sign Out" variant="secondary" loading={authLoading} onPress={() => void handleSignOut()} />
+                </View>
+              </>
+            ) : guest ? (
+              <>
+                <View style={styles.dataRow}>
+                  <Text style={[styles.dataLabel, { color: theme.text }]}>Guest Profile</Text>
+                  <Text numberOfLines={1} style={[styles.dataValue, styles.authEmailValue, { color: theme.secondaryText }]}>{guest.name}</Text>
+                </View>
+                <Text style={[styles.infoText, { color: theme.secondaryText }]}>Guest data is saved only on this device. If you clear app data or reinstall the app, all guest data will be lost. Sign in to back up your data.</Text>
+                <View style={styles.buttonGroup}>
                   <Button label="Sign Out" variant="secondary" loading={authLoading} onPress={() => void handleSignOut()} />
                 </View>
               </>

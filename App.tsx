@@ -19,16 +19,22 @@ import { resolveAccentColor, resolveBackgroundColor } from './src/utils/color';
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { getCurrentSession } from './src/supabase/auth';
 import { getSupabaseClient } from './src/supabase/client';
+import { userRepository } from './src/repositories/UserRepository';
+import { useAuthStore } from './src/store/authStore';
+import { Session } from '@supabase/supabase-js';
 import { styles } from './App.styles';
 
 export default function App() {
   const [ready, setReady] = useState(false);
   const [bootError, setBootError] = useState<Error | null>(null);
   const [retryKey, setRetryKey] = useState(0);
-  const [authenticated, setAuthenticated] = useState(false);
+  const [sessionUser, setSessionUser] = useState<Session | null>(null);
   const [authGateMode, setAuthGateMode] = useState<AuthGateMode>("sign-in");
   const [authChecked, setAuthChecked] = useState(false);
+  const { guest } = useAuthStore();
   const { hydrate, resolvedTheme, accentColor, backgroundColorOverride } = useSettingsStore();
+
+  const authenticated = !!sessionUser || !!guest;
 
   const [fontsLoaded, fontError] = useFonts({
     Outfit_400Regular,
@@ -48,8 +54,10 @@ export default function App() {
         registerNotificationHandlers();
         await hydrate();
         const session = await getCurrentSession().catch(() => null);
+        const activeGuest = session ? null : await userRepository.getActiveGuest().catch(() => null);
         if (mounted) {
-          setAuthenticated(!!session);
+          useAuthStore.getState().setGuest(activeGuest);
+          setSessionUser(session);
           setAuthChecked(true);
           setReady(true);
         }
@@ -75,12 +83,16 @@ export default function App() {
       const { data } = getSupabaseClient().auth.onAuthStateChange((event, session) => {
         if (event === "PASSWORD_RECOVERY") {
           setAuthGateMode("update-password");
-          setAuthenticated(false);
+          setSessionUser(null);
           return;
         }
 
         setAuthGateMode("sign-in");
-        setAuthenticated(!!session);
+        if (session) {
+          void userRepository.clearActiveGuest();
+          useAuthStore.getState().setGuest(null);
+        }
+        setSessionUser(session);
       });
       subscription = data.subscription;
     } catch (error) {
@@ -142,7 +154,6 @@ export default function App() {
         initialMode={authGateMode}
         onAuthenticated={() => {
           setAuthGateMode("sign-in");
-          setAuthenticated(true);
         }}
       />
     );

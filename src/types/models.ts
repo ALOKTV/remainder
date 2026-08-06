@@ -58,6 +58,14 @@ export interface Note {
   updatedAt: string;
 }
 
+export interface GuestUser {
+  id: string;
+  name: string;
+  isGuest: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DatabaseInfo {
   taskCount: number;
   todayItemCount: number;
